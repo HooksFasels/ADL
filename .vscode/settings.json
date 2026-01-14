@@ -24,12 +24,6 @@
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.detectIndentation": false,
-
-  "breadcrumbs.enabled": true,
-  "workbench.activityBar.location": "hidden",
-  "workbench.editor.enablePreview": true,
-  "workbench.startupEditor": "none",
-
   "files.autoSave": "afterDelay",
   "files.autoSaveDelay": 1000,
   "files.trimTrailingWhitespace": true,
