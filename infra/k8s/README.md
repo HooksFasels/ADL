@@ -1,4 +1,4 @@
-# types
+# k8s
 
 To install dependencies:
 
