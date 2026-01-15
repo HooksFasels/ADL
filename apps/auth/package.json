@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run bootstrap.ts",
+    "dev": "bun run --watch bootstrap.ts",
     "build": "bun build bootstrap.ts --outdir dist"
   },
   "devDependencies": {
@@ -17,13 +17,15 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/pg": "^8.16.0",
     "@types/redis": "^4.0.11",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "db": "*",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "pg": "^8.17.1",
     "redis": "^5.10.0",
-    "zod": "^4.3.5",
-    "db": "*"
+    "zod": "^4.3.5"
   }
 }

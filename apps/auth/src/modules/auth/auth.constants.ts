@@ -3,6 +3,7 @@ export const ERRORCODES = {
   INVALID_ENV: 'Invalid environment configuration',
   INTERNAL_ERROR: 'Internal server error',
   UNAUTHORIZED: 'Unauthorized access',
+  USER_ALREADY_EXISTS: 'user already exists',
   FORBIDDEN: 'Access forbidden',
   NOT_FOUND: 'Resource not found',
   BAD_REQUEST: 'Bad request',
@@ -30,6 +31,7 @@ export const ERRORCODES = {
   VARIANT_ALSO_NEGOTIATES: 'Variant also negotiates',
   EXPECTATION_FAILED: 'Expectation failed',
   IM_A_TEAPOT: "I'm a teapot",
+  FAILED_TO_START: 'Failed to start application',
   INSUFFICIENT_STORAGE: 'Insufficient storage',
 };
 export const SUCCESS_CODES = {

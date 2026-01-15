@@ -3,7 +3,7 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run src/gateway.express.ts",
+    "dev": "bun run --watch src/gateway.express.ts",
     "build": "bun build src/index.ts --outdir dist"
   },
   "private": true,

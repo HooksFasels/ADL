@@ -1,15 +1,16 @@
+import { UserRole } from 'db/client';
+
 export type LoginUser = {
-  email: String;
-  password: String;
-}
+  email: string;
+  password: string;
+};
 export type RegisterUser = {
-  name: String;
-  email: String;
-  password: String;
-}
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+};
 export interface ReqAuthenticateUser extends Request {
-  id : String,
+  id: string;
 }
-
-
-
+export { UserRole };

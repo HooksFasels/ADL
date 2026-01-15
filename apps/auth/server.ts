@@ -10,6 +10,7 @@ export class Server {
   constructor(private readonly port: number) {
     this.app = express();
     this.httpServer = http.createServer(this.app);
+    this.registerMiddlewares();
   }
 
   private registerMiddlewares() {
@@ -22,7 +23,6 @@ export class Server {
   private registerErrorHandler() {}
 
   public start() {
-   this.registerMiddlewares();
     this.registerRoutes();
     this.registerErrorHandler();
 

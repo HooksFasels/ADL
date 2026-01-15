@@ -6,9 +6,9 @@ export class PrismaService {
   private readonly prisma: PrismaClient;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL as string;
-
-    const adapter = new PrismaPg({ connectionString });
+    const connectionString =
+      process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/app_db';
+    const adapter = new PrismaPg({connectionString});
     this.prisma = new PrismaClient({ adapter });
   }
 
@@ -28,3 +28,4 @@ export class PrismaService {
 }
 
 export { PrismaClient } from '../generated/prisma/client';
+export * from '../generated/prisma/enums';
