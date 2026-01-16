@@ -4,6 +4,7 @@ export const ERRORCODES = {
   INTERNAL_ERROR: 'Internal server error',
   UNAUTHORIZED: 'Unauthorized access',
   USER_ALREADY_EXISTS: 'user already exists',
+  USER_NOT_FOUND: 'user not found',
   FORBIDDEN: 'Access forbidden',
   NOT_FOUND: 'Resource not found',
   BAD_REQUEST: 'Bad request',

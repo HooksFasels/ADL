@@ -4,6 +4,7 @@ import { RedisClient } from '@/config/redis';
 import { PrismaService } from 'db/client';
 import { ERRORCODES } from '@/modules/auth/auth.constants';
 import { UserRepository } from '@/repositories/user.repository';
+import { JwtService } from '@/config/jwt';
 
 async function bootstrap() {
   try {
@@ -12,8 +13,9 @@ async function bootstrap() {
     const prisma = new PrismaService();
     await prisma.connect();
     const userRepository = new UserRepository(prisma.getClient());
+    const jwtService = new JwtService();
 
-    const app = new App(redis, prisma, userRepository);
+    const app = new App(redis, prisma, userRepository, jwtService);
     app.start();
 
     process.on('SIGINT', async () => {
