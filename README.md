@@ -16,7 +16,7 @@ graph TD
     Kafka -->|Consume| Processor[Data Processing Service]
     Kafka -->|Consume| Archiver[Archival Service]
 
-    Processor -->|Update State| "Redis[Redis Cache (Latest Location)"]
+    Processor -->|Update State| Redis["Redis Cache (Latest Location)"]
     Processor -->|Geospatial Queries| DB[PostgreSQL + PostGIS]
     Processor -->|Events| Realtime[Realtime Gateway Service]
 
