@@ -1,7 +1,6 @@
 generator client {
   provider        = "prisma-client"
   output          = "../generated/prisma"
-
 }
 
 datasource db {
@@ -9,9 +8,13 @@ datasource db {
 }
 
 enum UserRole {
-  ADMIN
+  SUPER_ADMIN
+  COLLEGE_ADMIN
+  TRANSPORT_ADMIN
   DRIVER
-  OPERATOR
+  STUDENT
+  PARENT
+  STAFF
 }
 
 enum VehicleStatus {
@@ -27,19 +30,43 @@ enum TripStatus {
   CANCELLED
 }
 
-model User {
-  id       String   @id @default(uuid())
-  email    String   @unique
-  password String
-  role     UserRole
-  isActive Boolean  @default(true)
-  name     String
+// ----------------------------------------------------------------------------
+// MULTI-TENANCY CORE
+// ----------------------------------------------------------------------------
+model College {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  users     User[]
+  vehicles  Vehicle[]
+  routes    Route[]
+  trips     Trip[]
+}
+
+// ----------------------------------------------------------------------------
+// USERS & ROLES
+// ----------------------------------------------------------------------------
+model User {
+  id        String   @id @default(uuid())
+  collegeId String?  // Nullable ONLY for SUPER_ADMIN
+  email     String   @unique
+  password  String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  name      String
+
+  college   College? @relation(fields: [collegeId], references: [id])
   driverProfile DriverProfile?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
+  @@index([collegeId])
 }
 
 model DriverProfile {
@@ -49,41 +76,51 @@ model DriverProfile {
   licenseNo String?
 
   user User @relation(fields: [userId], references: [id])
-
   vehicles VehicleAssignment[]
 
   createdAt DateTime @default(now())
 }
 
+// ----------------------------------------------------------------------------
+// ASSETS & ROUTES
+// ----------------------------------------------------------------------------
 model Vehicle {
   id           String        @id @default(uuid())
+  collegeId    String
   registration String        @unique
   type         String
   capacity     Int?
+  gpsDeviceId  String?       @unique
   status       VehicleStatus @default(ACTIVE)
 
-  assignments VehicleAssignment[]
-  trips       Trip[]
-  locations   LocationHistory[]
+  college      College       @relation(fields: [collegeId], references: [id])
+  assignments  VehicleAssignment[]
+  trips        Trip[]
+  locations    LocationHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  @@index([collegeId])
 }
 
 model Route {
-  id       String  @id @default(uuid())
-  code     String  @unique
-  name     String
-  city     String
-  isActive Boolean @default(true)
+  id        String  @id @default(uuid())
+  collegeId String
+  code      String  @unique
+  name      String
+  city      String
+  isActive  Boolean @default(true)
 
-  stops       RouteStop[]
-  trips       Trip[]
+  college   College @relation(fields: [collegeId], references: [id])
+  stops     RouteStop[]
+  trips     Trip[]
   assignments VehicleAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([collegeId])
   @@index([city])
 }
 
@@ -119,8 +156,12 @@ model VehicleAssignment {
   @@index([routeId])
 }
 
+// ----------------------------------------------------------------------------
+// TRIP EXECUTION
+// ----------------------------------------------------------------------------
 model Trip {
   id        String     @id @default(uuid())
+  collegeId String
   vehicleId String
   routeId   String
   status    TripStatus
@@ -128,11 +169,13 @@ model Trip {
   startedAt DateTime?
   endedAt   DateTime?
 
+  college College @relation(fields: [collegeId], references: [id])
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
   route   Route   @relation(fields: [routeId], references: [id])
 
   locations LocationHistory[]
 
+  @@index([collegeId])
   @@index([vehicleId])
   @@index([routeId])
 }
