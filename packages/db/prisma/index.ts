@@ -7,8 +7,8 @@ export class PrismaService {
 
   constructor() {
     const connectionString =
-      process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_ce4o9VBnqZyw@ep-ancient-field-amnbfkwr-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-    const adapter = new PrismaPg({connectionString});
+      process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/app_db';
+    const adapter = new PrismaPg({ connectionString });
     this.prisma = new PrismaClient({ adapter });
   }
 
@@ -27,4 +27,10 @@ export class PrismaService {
   }
 }
 
-export { PrismaClient, Prisma, UserRole, VehicleStatus, TripStatus } from '../generated/prisma/client';
+export {
+  PrismaClient,
+  Prisma,
+  UserRole,
+  VehicleStatus,
+  TripStatus,
+} from '../generated/prisma/client';
