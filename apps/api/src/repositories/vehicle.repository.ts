@@ -6,12 +6,9 @@ export class VehicleRepository {
     return prisma.vehicle.create({ data });
   }
 
-  async findAll(collegeId?: string) {
+  async findAll() {
     return prisma.vehicle.findMany({
-      where: collegeId ? { collegeId } : {},
-      include: {
-        college: { select: { name: true } }
-      }
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -19,45 +16,25 @@ export class VehicleRepository {
     return prisma.vehicle.findUnique({
       where: { id },
       include: {
-        college: { select: { name: true } },
         assignments: {
           include: {
-            driver: {
-              include: { user: { select: { name: true } } }
-            },
-            route: true
-          }
+            driver: { include: { user: { select: { name: true } } } },
+            route: true,
+          },
         },
-        trips: {
-          take: 5,
-          orderBy: { startedAt: 'desc' }
-        }
-      }
+      },
     });
   }
 
   async findByRegistration(registration: string) {
-    return prisma.vehicle.findUnique({
-      where: { registration }
-    });
-  }
-
-  async findByGpsDeviceId(gpsDeviceId: string) {
-    return prisma.vehicle.findUnique({
-      where: { gpsDeviceId }
-    });
+    return prisma.vehicle.findUnique({ where: { registration } });
   }
 
   async update(id: string, data: Prisma.VehicleUpdateInput) {
-    return prisma.vehicle.update({
-      where: { id },
-      data
-    });
+    return prisma.vehicle.update({ where: { id }, data });
   }
 
   async delete(id: string) {
-    return prisma.vehicle.delete({
-      where: { id }
-    });
+    return prisma.vehicle.delete({ where: { id } });
   }
 }

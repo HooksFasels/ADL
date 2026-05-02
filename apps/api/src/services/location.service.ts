@@ -3,6 +3,7 @@ import { TripRepository } from '../repositories/trip.repository';
 import { VehicleRepository } from '../repositories/vehicle.repository';
 import { ApiError } from '../utils/ApiError';
 import { Prisma } from 'db/client';
+import { publishLocation } from '../config/kafka';
 
 export class LocationService {
   private repository: LocationRepository;
@@ -29,11 +30,16 @@ export class LocationService {
       }
     }
 
-    return this.repository.create({
+    const location = await this.repository.create({
       ...data,
       tripId: finalTripId,
       recordedAt: new Date()
     });
+
+    // Async publish to Kafka for real-time tracking
+    publishLocation(location);
+
+    return location;
   }
 
   async getVehicleHistory(vehicleId: string) {

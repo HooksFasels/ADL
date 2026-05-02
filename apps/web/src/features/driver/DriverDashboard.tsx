@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { Button, Card, Badge, Alert } from '@repo/utils/ui';
 import { Car, MapPin, Route, Shield } from 'lucide-react';
+import { api } from '../../services/api';
 
 const formatDuration = (startedAt: Date | null) => {
   if (!startedAt) return '--';
@@ -18,7 +19,24 @@ export default function DriverDashboard() {
   const [isTripActive, setIsTripActive] = useState(false);
   const [tripStartTime, setTripStartTime] = useState<Date | null>(null);
   const [lastTripDuration, setLastTripDuration] = useState<string | null>(null);
-  const { position, error } = useGeolocation(isTripActive);
+  const [assignment, setAssignment] = useState<any>(null);
+  
+  useEffect(() => {
+    if (user?.id) {
+      // For demonstration, we assume user.id is the driverId or we can fetch it
+      // In a real app, the token would handle this on the backend
+      api.getAssignmentByDriverId(user.id)
+        .then(res => {
+          if (res.success && res.data) {
+            setAssignment(res.data);
+          }
+        })
+        .catch(err => console.error('Failed to fetch assignment', err));
+    }
+  }, [user?.id]);
+
+  const vehicleId = assignment?.vehicleId;
+  const { position, error } = useGeolocation(isTripActive, vehicleId);
 
   const speedKmh = useMemo(() => {
     if (!position?.coords.speed || position.coords.speed < 0) return 0;
@@ -57,14 +75,18 @@ export default function DriverDashboard() {
           </div>
           <div className="p-4 bg-gray-50 rounded border">
             <p className="text-sm text-gray-500 uppercase font-bold">Route</p>
-            <p className="text-lg font-bold">101 - Downtown Express</p>
+            <p className="text-lg font-bold">
+              {assignment ? `${assignment.route.code} - ${assignment.route.name}` : 'No route assigned'}
+            </p>
             <div className="mt-3 flex items-center gap-2">
               <Car size={16} />
-              <span className="text-sm">Vehicle: KA-01-F-1234 (AC)</span>
+              <span className="text-sm">
+                Vehicle: {assignment ? `${assignment.vehicle.registration} (${assignment.vehicle.type})` : 'No vehicle assigned'}
+              </span>
             </div>
           </div>
           <div className="space-y-2">
-            <Button className="w-full" onClick={handleStartTrip} disabled={isTripActive}>
+            <Button className="w-full" onClick={handleStartTrip} disabled={isTripActive || !assignment}>
               <Route className="mr-2" size={18} />
               Start Trip
             </Button>
@@ -122,22 +144,30 @@ export default function DriverDashboard() {
       </div>
 
       <Card>
-        <h3 className="font-bold mb-4">Upcoming Stops</h3>
+        <h3 className="font-bold mb-4 text-lg">Upcoming Route Schedule</h3>
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                {i}
+          {assignment?.route?.stops?.length > 0 ? (
+            assignment.route.stops.map((stop: any, i: number) => (
+              <div key={stop.id} className="flex items-center gap-4 group">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                  {stop.sequence}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{stop.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {i === 0 ? 'Start Terminal' : `Sequence ${stop.sequence}`}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" disabled={!isTripActive} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  Mark Arrived
+                </Button>
               </div>
-              <div className="flex-1">
-                <p className="font-semibold">Stop Name {i}</p>
-                <p className="text-sm text-gray-500">Scheduled: 10:45 AM</p>
-              </div>
-              <Button size="sm" variant="outline" disabled={!isTripActive}>
-                Arrived
-              </Button>
+            ))
+          ) : (
+            <div className="text-center p-8 text-gray-400">
+              <p>No stops found for this route.</p>
             </div>
-          ))}
+          )}
         </div>
       </Card>
     </div>

@@ -49,4 +49,21 @@ export class VehicleAssignmentRepository {
       where: { id }
     });
   }
+
+  async findActiveAssignmentByDriver(driverId: string) {
+    return prisma.vehicleAssignment.findFirst({
+      where: {
+        driverId,
+        endDate: null
+      },
+      include: {
+        vehicle: true,
+        route: {
+          include: {
+            stops: { orderBy: { sequence: 'asc' } }
+          }
+        }
+      }
+    });
+  }
 }

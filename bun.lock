@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "ADL",
@@ -22,6 +23,7 @@
         "db": "*",
         "dotenv": "^17.2.3",
         "express": "^5.2.1",
+        "kafkajs": "^2.2.4",
         "redis": "^5.10.0",
         "types": "*",
         "zod": "^4.3.6",
@@ -86,6 +88,7 @@
         "@types/ws": "^8.18.1",
         "crypto": "^1.0.1",
         "express": "^5.2.1",
+        "kafkajs": "^2.2.4",
         "ws": "^8.19.0",
       },
       "devDependencies": {

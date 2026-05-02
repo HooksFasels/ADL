@@ -25,7 +25,8 @@
     "express": "^5.2.1",
     "redis": "^5.10.0",
     "types": "*",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "kafkajs": "^2.2.4"
   },
   "peerDependencies": {
     "typescript": "^5"

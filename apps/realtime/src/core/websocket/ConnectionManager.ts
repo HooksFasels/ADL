@@ -26,4 +26,11 @@ export class ConnectionManager {
   private onLocation(clientId: string, payload: LocationPayload) {
     console.log(`[${clientId}] lat: ${payload.lat}, lon: ${payload.lon}`);
   }
+
+  broadcast(event: string, data: any) {
+    const payload = JSON.stringify({ event, data });
+    this.connections.forEach((conn) => {
+      conn.send(payload);
+    });
+  }
 }

@@ -27,5 +27,4 @@ export class PrismaService {
   }
 }
 
-export { PrismaClient, Prisma } from '../generated/prisma/client';
-export * from '../generated/prisma/enums';
+export { PrismaClient, Prisma, UserRole, VehicleStatus, TripStatus } from '../generated/prisma/client';

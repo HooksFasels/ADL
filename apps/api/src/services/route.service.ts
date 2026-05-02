@@ -1,53 +1,40 @@
 import { RouteRepository } from '../repositories/route.repository';
-import { CollegeRepository } from '../repositories/college.repository';
 import { ApiError } from '../utils/ApiError';
 import { Prisma } from 'db/client';
 
 export class RouteService {
   private repository: RouteRepository;
-  private collegeRepository: CollegeRepository;
 
   constructor() {
     this.repository = new RouteRepository();
-    this.collegeRepository = new CollegeRepository();
   }
 
-  async createRoute(data: Prisma.RouteUncheckedCreateInput) {
-    const college = await this.collegeRepository.findById(data.collegeId);
-    if (!college) {
-      throw new ApiError(404, 'College not found');
-    }
-
+  async createRoute(data: { code: string; name: string; city: string }) {
     const existing = await this.repository.findByCode(data.code);
     if (existing) {
       throw new ApiError(400, 'Route with this code already exists');
     }
-
-    return this.repository.create(data);
+    return this.repository.create(data as Prisma.RouteCreateInput);
   }
 
-  async getAllRoutes(collegeId?: string) {
-    return this.repository.findAll(collegeId);
+  async getAllRoutes() {
+    return this.repository.findAll();
   }
 
   async getRouteById(id: string) {
     const route = await this.repository.findById(id);
-    if (!route) {
-      throw new ApiError(404, 'Route not found');
-    }
+    if (!route) throw new ApiError(404, 'Route not found');
     return route;
   }
 
   async updateRoute(id: string, data: Prisma.RouteUpdateInput) {
     await this.getRouteById(id);
-
     if (data.code && typeof data.code === 'string') {
       const existing = await this.repository.findByCode(data.code);
       if (existing && existing.id !== id) {
         throw new ApiError(400, 'Route code already in use');
       }
     }
-
     return this.repository.update(id, data);
   }
 

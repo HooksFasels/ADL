@@ -16,4 +16,8 @@ export class WebSocketServer {
     });
     console.log('WebSocket server started');
   }
+
+  getConnectionManager() {
+    return this.connectionManager;
+  }
 }

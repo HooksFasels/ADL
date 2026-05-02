@@ -4,8 +4,10 @@ import dotenv from "dotenv";
 import v1Router from "./src/routes/index";
 import { errorHandler } from "./src/middlewares/error.middleware";
 import { ApiError } from "./src/utils/ApiError";
+import { connectKafka } from "./src/config/kafka";
 
 dotenv.config();
+connectKafka();
 
 const app = express();
 const PORT = process.env.PORT || 3009;

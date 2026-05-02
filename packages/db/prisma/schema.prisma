@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client"
   output          = "../generated/prisma"
+
 }
 
 datasource db {
@@ -8,13 +9,9 @@ datasource db {
 }
 
 enum UserRole {
-  SUPER_ADMIN
-  COLLEGE_ADMIN
-  TRANSPORT_ADMIN
+  ADMIN
   DRIVER
-  STUDENT
-  PARENT
-  STAFF
+  OPERATOR
 }
 
 enum VehicleStatus {
@@ -30,43 +27,19 @@ enum TripStatus {
   CANCELLED
 }
 
-// ----------------------------------------------------------------------------
-// MULTI-TENANCY CORE
-// ----------------------------------------------------------------------------
-model College {
-  id        String   @id @default(uuid())
-  name      String
-  domain    String?  @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users     User[]
-  vehicles  Vehicle[]
-  routes    Route[]
-  trips     Trip[]
-}
-
-// ----------------------------------------------------------------------------
-// USERS & ROLES
-// ----------------------------------------------------------------------------
 model User {
-  id        String   @id @default(uuid())
-  collegeId String?  // Nullable ONLY for SUPER_ADMIN
-  email     String   @unique
-  password  String
-  role      UserRole
-  isActive  Boolean  @default(true)
-  name      String
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String
+  role     UserRole
+  isActive Boolean  @default(true)
+  name     String
 
-  college   College? @relation(fields: [collegeId], references: [id])
   driverProfile DriverProfile?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([role])
-  @@index([collegeId])
 }
 
 model DriverProfile {
@@ -76,51 +49,58 @@ model DriverProfile {
   licenseNo String?
 
   user User @relation(fields: [userId], references: [id])
+
+  assignedRouteId String?
+  assignedRoute   Route?  @relation("DriverAssignedRoute", fields: [assignedRouteId], references: [id])
+
+  assignedStops DriverStop[]
+
   vehicles VehicleAssignment[]
 
   createdAt DateTime @default(now())
 }
 
-// ----------------------------------------------------------------------------
-// ASSETS & ROUTES
-// ----------------------------------------------------------------------------
+model DriverStop {
+  id              String @id @default(uuid())
+  driverProfileId String
+  stopId          String
+
+  driver DriverProfile @relation(fields: [driverProfileId], references: [id])
+  stop   RouteStop     @relation(fields: [stopId], references: [id])
+
+  @@unique([driverProfileId, stopId])
+}
+
 model Vehicle {
   id           String        @id @default(uuid())
-  collegeId    String
   registration String        @unique
   type         String
   capacity     Int?
-  gpsDeviceId  String?       @unique
   status       VehicleStatus @default(ACTIVE)
 
-  college      College       @relation(fields: [collegeId], references: [id])
-  assignments  VehicleAssignment[]
-  trips        Trip[]
-  locations    LocationHistory[]
+  assignments VehicleAssignment[]
+  trips       Trip[]
+  locations   LocationHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@index([collegeId])
 }
 
 model Route {
-  id        String  @id @default(uuid())
-  collegeId String
-  code      String  @unique
-  name      String
-  city      String
-  isActive  Boolean @default(true)
+  id       String  @id @default(uuid())
+  code     String  @unique
+  name     String
+  city     String
+  isActive Boolean @default(true)
 
-  college   College @relation(fields: [collegeId], references: [id])
-  stops     RouteStop[]
-  trips     Trip[]
-  assignments VehicleAssignment[]
+  stops           RouteStop[]
+  trips           Trip[]
+  assignments     VehicleAssignment[]
+  assignedDrivers DriverProfile[]     @relation("DriverAssignedRoute")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([collegeId])
   @@index([city])
 }
 
@@ -132,7 +112,8 @@ model RouteStop {
   longitude Float
   sequence  Int
 
-  route Route @relation(fields: [routeId], references: [id])
+  route       Route        @relation(fields: [routeId], references: [id])
+  driverStops DriverStop[]
 
   @@unique([routeId, sequence])
   @@index([routeId])
@@ -156,12 +137,8 @@ model VehicleAssignment {
   @@index([routeId])
 }
 
-// ----------------------------------------------------------------------------
-// TRIP EXECUTION
-// ----------------------------------------------------------------------------
 model Trip {
   id        String     @id @default(uuid())
-  collegeId String
   vehicleId String
   routeId   String
   status    TripStatus
@@ -169,13 +146,11 @@ model Trip {
   startedAt DateTime?
   endedAt   DateTime?
 
-  college College @relation(fields: [collegeId], references: [id])
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
   route   Route   @relation(fields: [routeId], references: [id])
 
   locations LocationHistory[]
 
-  @@index([collegeId])
   @@index([vehicleId])
   @@index([routeId])
 }

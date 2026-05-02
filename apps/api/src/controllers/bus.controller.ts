@@ -6,19 +6,17 @@ export class BusController {
 
   public createBus = async (req: Request, res: Response) => {
     try {
-      // In production, use Zod for payload validation here
-      const { collegeId, registration, capacity, gpsDeviceId, type } = req.body;
+      const { registration, capacity, type, status } = req.body;
 
-      if (!collegeId || !registration || !capacity) {
-        return res.status(400).json({ success: false, error: 'Missing required fields: collegeId, registration, capacity' });
+      if (!registration || !capacity) {
+        return res.status(400).json({ success: false, error: 'Missing required fields: registration, capacity' });
       }
 
       const bus = await this.busService.createBus({
-        collegeId,
         registration,
         capacity: Number(capacity),
-        gpsDeviceId,
-        type
+        type,
+        status,
       });
 
       res.status(201).json({ success: true, data: bus });
@@ -29,13 +27,17 @@ export class BusController {
 
   public getBuses = async (req: Request, res: Response) => {
     try {
-      const collegeId = req.query.collegeId as string;
-      if (!collegeId) {
-        return res.status(400).json({ success: false, error: 'collegeId query param is required' });
-      }
-
-      const buses = await this.busService.getAllBuses(collegeId);
+      const buses = await this.busService.getAllBuses();
       res.status(200).json({ success: true, data: buses });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
+  public getActive = async (req: Request, res: Response) => {
+    try {
+      const activeBuses = await this.busService.getActiveBuses();
+      res.status(200).json({ success: true, data: activeBuses });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }

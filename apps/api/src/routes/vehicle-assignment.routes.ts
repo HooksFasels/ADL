@@ -8,6 +8,7 @@ const controller = new VehicleAssignmentController();
 
 router.post('/', validate(createVehicleAssignmentSchema), controller.create);
 router.get('/', controller.getAll);
+router.get('/active', controller.getByDriver);
 router.get('/:id', validate(getVehicleAssignmentSchema), controller.getById);
 router.patch('/:id', validate(updateVehicleAssignmentSchema), controller.update);
 router.delete('/:id', validate(getVehicleAssignmentSchema), controller.delete);
