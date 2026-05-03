@@ -52,7 +52,7 @@ export default function TransitAdminDashboard() {
     try {
       const res = await api.createDriver(driverForm);
       if (res.success) { msg('success', 'Driver created'); setDriverForm({ name: '', email: '', password: '', phone: '', licenseNo: '', assignedRouteId: '' }); fetchAll(); }
-    } catch (err: any) { msg('error', err.response?.data?.message || err.message || 'Failed to create driver'); }
+    } catch (err: any) { msg('error', err.response?.data?.message || err.message || 'Operation failed'); }
   };
 
   const onCreateRoute = async (e: React.FormEvent) => {

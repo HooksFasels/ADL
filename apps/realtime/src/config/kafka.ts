@@ -3,7 +3,7 @@ import type { Producer } from 'kafkajs';
 
 const kafka = new Kafka({
   clientId: 'realtime-service',
-  brokers: [process.env.KAFKA_BROKER ?? 'localhost:9092'],
+  brokers: [process.env.KAFKA_BROKERS ?? 'localhost:9092'],
 });
 
 const producer: Producer = kafka.producer({

@@ -110,7 +110,8 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 const startServer = async () => {
-  await Promise.allSettled([connectRedis(), connectKafka()]);
+  connectRedis();
+  connectKafka();
 
   app.listen(PORT, () => {
     console.log(`🚀 Production Server running on port ${PORT}`);
