@@ -25,6 +25,10 @@ export class BusService {
     });
   }
 
+  async deleteBus(id: string) {
+    return prisma.vehicle.delete({ where: { id } });
+  }
+
   async getAllBuses() {
     return prisma.vehicle.findMany({
       orderBy: { createdAt: 'desc' }
@@ -49,8 +53,11 @@ export class BusService {
       latitude: trip.locations[0]?.latitude,
       longitude: trip.locations[0]?.longitude,
       speed: trip.locations[0]?.speed,
+      status: (trip.locations[0] as any)?.status,
+      stopsCrossed: (trip.locations[0] as any)?.stopsCrossed,
       recordedAt: trip.locations[0]?.recordedAt,
       tripId: trip.id,
+      routeId: trip.routeId,
     }));
   }
 }

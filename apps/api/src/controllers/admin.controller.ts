@@ -55,21 +55,77 @@ export class AdminController {
     const drivers = await prisma.driverProfile.findMany({
       include: {
         user: { select: { id: true, name: true, email: true, isActive: true } },
-        assignedRoute: { select: { id: true, code: true, name: true } },
+        assignedRoute: { select: { id: true, code: true, startLocation: true, destinationLocation: true } },
       },
     });
     res.send(new ApiResponse(drivers));
   });
 
+  public deleteDriver = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    const profile = await prisma.driverProfile.findUnique({ where: { id } });
+    if (!profile) throw new ApiError(404, 'Driver not found');
+    
+    // Deleting the user will cascade to driver profile
+    await prisma.user.delete({ where: { id: profile.userId } });
+    res.send(new ApiResponse(null, 'Driver deleted successfully'));
+  });
+
   public createRoute = catchAsync(async (req: Request, res: Response) => {
-    const { code, name, city } = req.body;
-    if (!code || !name || !city) throw new ApiError(400, 'code, name, and city are required');
+    const { code, city, startLocation, destinationLocation, startLat, startLng, destLat, destLng } = req.body;
+    if (!code || !city) throw new ApiError(400, 'code and city are required');
 
     const existing = await prisma.route.findUnique({ where: { code } });
     if (existing) throw new ApiError(409, `Route with code "${code}" already exists`);
 
-    const route = await prisma.route.create({ data: { code, name, city } });
+    const route = await prisma.route.create({ 
+      data: { 
+        code, 
+        city, 
+        startLocation: startLocation || null, 
+        destinationLocation: destinationLocation || null,
+        startLat: startLat ? parseFloat(startLat) : null,
+        startLng: startLng ? parseFloat(startLng) : null,
+        destLat: destLat ? parseFloat(destLat) : null,
+        destLng: destLng ? parseFloat(destLng) : null,
+      } 
+    });
     res.status(201).send(new ApiResponse(route, 'Route created successfully'));
+  });
+
+  public deleteRoute = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    
+    await prisma.$transaction(async (tx) => {
+      // Unassign drivers
+      await tx.driverProfile.updateMany({
+        where: { assignedRouteId: id },
+        data: { assignedRouteId: null }
+      });
+
+      // Delete route stops & driver stops
+      const stops = await tx.routeStop.findMany({ where: { routeId: id } });
+      const stopIds = stops.map(s => s.id);
+      if (stopIds.length > 0) {
+        await tx.driverStop.deleteMany({ where: { stopId: { in: stopIds } } });
+        await tx.routeStop.deleteMany({ where: { routeId: id } });
+      }
+
+      // Delete vehicle assignments
+      await tx.vehicleAssignment.deleteMany({ where: { routeId: id } });
+
+      // Delete trips & location history
+      const trips = await tx.trip.findMany({ where: { routeId: id } });
+      const tripIds = trips.map(t => t.id);
+      if (tripIds.length > 0) {
+        await tx.locationHistory.deleteMany({ where: { tripId: { in: tripIds } } });
+        await tx.trip.deleteMany({ where: { routeId: id } });
+      }
+
+      await tx.route.delete({ where: { id } });
+    });
+
+    res.send(new ApiResponse(null, 'Route deleted successfully'));
   });
 
   public createStop = catchAsync(async (req: Request, res: Response) => {
@@ -91,6 +147,12 @@ export class AdminController {
       },
     });
     res.status(201).send(new ApiResponse(stop, 'Stop added successfully'));
+  });
+
+  public deleteStop = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    await prisma.routeStop.delete({ where: { id } });
+    res.send(new ApiResponse(null, 'Stop deleted successfully'));
   });
 
   /** Create a Vehicle Assignment: driver + vehicle + route */
@@ -128,7 +190,7 @@ export class AdminController {
       include: {
         driver:  { include: { user: { select: { name: true } } } },
         vehicle: { select: { id: true, registration: true, type: true } },
-        route:   { select: { id: true, code: true, name: true } },
+        route:   { select: { id: true, code: true, startLocation: true, destinationLocation: true } },
       },
     });
 
@@ -141,7 +203,7 @@ export class AdminController {
       include: {
         driver:  { include: { user: { select: { name: true, email: true } } } },
         vehicle: { select: { id: true, registration: true, type: true } },
-        route:   { select: { id: true, code: true, name: true } },
+        route:   { select: { id: true, code: true, startLocation: true, destinationLocation: true } },
       },
     });
     res.send(new ApiResponse(assignments));
@@ -158,5 +220,11 @@ export class AdminController {
       data: { endDate: new Date() },
     });
     res.send(new ApiResponse(updated, 'Assignment ended successfully'));
+  });
+
+  public deleteAssignment = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    await prisma.vehicleAssignment.delete({ where: { id } });
+    res.send(new ApiResponse(null, 'Assignment deleted successfully'));
   });
 }

@@ -25,6 +25,16 @@ export class BusController {
     }
   };
 
+  public deleteBus = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await this.busService.deleteBus(id as string);
+      res.status(200).json({ success: true, message: 'Bus deleted successfully' });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
   public getBuses = async (req: Request, res: Response) => {
     try {
       const buses = await this.busService.getAllBuses();

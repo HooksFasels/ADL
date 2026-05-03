@@ -10,7 +10,7 @@ export class DriverProfileRepository {
     return prisma.driverProfile.findMany({
       include: {
         user: { select: { name: true, email: true } },
-        assignedRoute: { select: { id: true, code: true, name: true } },
+        assignedRoute: { select: { id: true, code: true, city: true } },
       },
     });
   }

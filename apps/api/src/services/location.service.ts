@@ -36,8 +36,19 @@ export class LocationService {
       recordedAt: new Date()
     });
 
-    // Async publish to Kafka for real-time tracking
-    publishLocation(location);
+    // Resolve routeId from the active trip so passengers can filter by route
+    let routeId: string | undefined;
+    if (finalTripId) {
+      const trip = await this.tripRepository.findActiveTripByVehicle(data.vehicleId);
+      routeId = trip?.routeId ?? undefined;
+    }
+
+    // Async publish to Kafka for real-time tracking (full payload for passengers)
+    publishLocation({
+      ...location,
+      registration: vehicle.registration,
+      routeId,
+    });
 
     return location;
   }
