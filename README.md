@@ -1,4 +1,4 @@
-# ADL: Real-Time Bus Tracking & Authentication System
+# ADL: Real-Time Public Transport Tracking System
 
 A production-grade, scalable backend system for real-time bus tracking, fleet management, and role-based authentication. Built with a clean OOP-based architecture and SOLID principles.
 
