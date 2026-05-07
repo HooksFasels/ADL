@@ -117,10 +117,7 @@ export const api = {
     }
   },
 
-  // ── Auth ───────────────────────────────────────────────────────────────────
   login: (data: any) => client.post<ApiResponse<any>>('/api/v1/auth/login', data).then((r) => r.data),
-
-  // ── Passenger / Common ─────────────────────────────────────────────────────
   getRoutes: () => client.get<ApiResponse<Route[]>>('/api/v1/routes').then((r) => r.data),
   getStops: () => client.get<ApiResponse<Stop[]>>('/api/v1/stops').then((r) => r.data),
   getActiveBuses: () => client.get<ApiResponse<Bus[]>>('/api/v1/buses/active').then((r) => r.data),
@@ -133,18 +130,16 @@ export const api = {
     speed?: number;
   }) => client.post('/api/v1/location/update', data).then((r) => r.data),
 
-  // ── Transit Admin – Drivers ─────────────────────────────────────────────────
-  createDriver: (data: any) =>
-    client.post<ApiResponse<any>>('/api/v1/admin/drivers', data).then((r) => r.data),
-  getDrivers: () => client.get<ApiResponse<any[]>>('/api/v1/admin/drivers').then((r) => r.data),
 
-  // ── Transit Admin – Routes & Stops ──────────────────────────────────────────
+  createDriver: (data: any) =>
+    client.post<ApiResponse<any>>('/api/v1/drivers/drivers', data).then((r) => r.data),
+  getDrivers: () => client.get<ApiResponse<any[]>>('/api/v1/drivers/drivers').then((r) => r.data),
+
   createAdminRoute: (data: any) =>
     client.post<ApiResponse<any>>('/api/v1/admin/routes', data).then((r) => r.data),
   createAdminStop: (data: any) =>
     client.post<ApiResponse<any>>('/api/v1/admin/stops', data).then((r) => r.data),
 
-  // ── Transit Admin – Vehicles ────────────────────────────────────────────────
   getBuses: () => client.get<ApiResponse<Bus[]>>('/api/v1/buses/buses').then((r) => r.data),
   createVehicle: (data: {
     registration: string;
@@ -153,7 +148,6 @@ export const api = {
     status: string;
   }) => client.post<ApiResponse<Bus>>('/api/v1/buses/buses', data).then((r) => r.data),
 
-  // ── Transit Admin – Assignments ─────────────────────────────────────────────
   getAssignments: () => client.get<ApiResponse<any[]>>('/api/v1/admin/assignments').then((r) => r.data),
   createAssignment: (data: {
     driverId: string;
