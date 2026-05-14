@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Card, Button, Badge } from '@repo/utils/ui';
+import { Card, Badge } from '@repo/utils/ui';
 import { api, type ServiceHealthSnapshot } from '../../services/api';
 import { Users, Route as RouteIcon, Bus as BusIcon, Activity } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const INITIAL_SERVICE_HEALTH: ServiceHealthSnapshot = {
 };
 
 export default function AdminDashboard() {
-  const { logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [stats, setStats] = useState({ drivers: 0, routes: 0, vehicles: 0 });
   const [apiHealth, setApiHealth] = useState<ServiceHealthSnapshot>(INITIAL_SERVICE_HEALTH);
   const [databaseHealth, setDatabaseHealth] = useState<ServiceHealthSnapshot>({
@@ -174,9 +174,6 @@ export default function AdminDashboard() {
                 ? `Last updated ${lastUpdated}`
                 : 'Waiting for first refresh'}
           </span>
-          <Button variant="outline" onClick={logout}>
-            Logout
-          </Button>
         </div>
       </div>
 
