@@ -6,22 +6,28 @@ const kafka = new Kafka({
   connectionTimeout: 3000,
   retry: {
     initialRetryTime: 100,
-    retries: 8
-  }
+    retries: 8,
+  },
 });
 
 const producer = kafka.producer({
   createPartitioner: Partitioners.LegacyPartitioner,
 });
 
+let kafkaConnected = false;
+
 export const connectKafka = async () => {
   try {
     await producer.connect();
+    kafkaConnected = true;
     console.log('✅ Kafka Producer connected');
   } catch (error) {
+    kafkaConnected = false;
     console.error('❌ Kafka Connection Error:', error);
   }
 };
+
+export const isKafkaConnected = () => kafkaConnected;
 
 export const publishLocation = async (payload: any) => {
   try {
