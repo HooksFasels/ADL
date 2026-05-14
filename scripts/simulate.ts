@@ -1,20 +1,11 @@
 import { PrismaService } from '../packages/db/prisma/index';
+import * as readline from 'readline';
 
 const prismaService = new PrismaService();
 const prisma = prismaService.getClient();
-const API_URL = 'http://localhost:3009/api/v1/location/update';
+const API_URL = 'http://localhost:4000/api/v1/location/update';
 
-// Utility to calculate intermediate points
-function interpolate(lat1: number, lon1: number, lat2: number, lon2: number, steps: number) {
-  const points = [];
-  for (let i = 0; i <= steps; i++) {
-    const fraction = i / steps;
-    const lat = lat1 + (lat2 - lat1) * fraction;
-    const lon = lon1 + (lon2 - lon1) * fraction;
-    points.push({ latitude: lat, longitude: lon });
-  }
-  return points;
-}
+// Removed interpolate function in favor of OSRM routing
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -65,39 +56,43 @@ async function main() {
     console.log('Found Vehicle:', vehicle.registration);
   }
 
-  // 4. Create the simulation Route
-  let route = await prisma.route.findFirst({
-    where: { code: 'GRAND_LINE' }
+  // 4. Fetch all Routes from the database
+  const allRoutes = await prisma.route.findMany({
+    include: { stops: { orderBy: { sequence: 'asc' } } }
   });
-  if (!route) {
-    route = await prisma.route.create({
-      data: {
-        code: 'GRAND_LINE',
-        startLocation: 'Gandhipuram Town Bus Stand',
-        destinationLocation: 'PSG College of Technology',
-        startLat: 11.0168,
-        startLng: 76.9558,
-        destLat: 11.0241,
-        destLng: 76.9636,
-        city: 'Coimbatore',
-        stops: {
-          create: [
-            {
-              name: 'Hopes College',
-              latitude: 11.0274,
-              longitude: 76.9533,
-              sequence: 1
-            }
-          ]
-        }
-      }
-    });
-    console.log('Created Route:', route.code);
-  } else {
-    console.log('Found Route:', route.code);
+
+  if (allRoutes.length === 0) {
+    console.error('No routes found in the database. Please create a route first.');
+    return;
   }
 
-  // 5. Create Assignment
+  // 5. Ask user to select a route
+  console.log('\nAvailable Routes:');
+  allRoutes.forEach((r, idx) => {
+    console.log(`[${idx + 1}] ${r.code} (${r.startLocation} -> ${r.destinationLocation})`);
+  });
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const selectedRouteIndex = await new Promise<number>((resolve) => {
+    rl.question('\nSelect a route by number: ', (answer) => {
+      rl.close();
+      resolve(parseInt(answer, 10) - 1);
+    });
+  });
+
+  if (selectedRouteIndex < 0 || selectedRouteIndex >= allRoutes.length || isNaN(selectedRouteIndex)) {
+    console.error('Invalid selection. Exiting.');
+    return;
+  }
+
+  const route = allRoutes[selectedRouteIndex];
+  console.log(`\nSelected Route: ${route.code}`);
+
+  // 6. Create Assignment
   let assignment = await prisma.vehicleAssignment.findFirst({
     where: { driverId: driver.driverProfile!.id, routeId: route.id, vehicleId: vehicle.id }
   });
@@ -113,13 +108,13 @@ async function main() {
     console.log('Created Assignment');
   }
 
-  // 6. Stop any existing running trips for this vehicle
+  // 7. Stop any existing running trips for this vehicle
   await prisma.trip.updateMany({
     where: { vehicleId: vehicle.id, status: 'RUNNING' },
     data: { status: 'COMPLETED', endedAt: new Date() }
   });
 
-  // 7. Start a new Trip
+  // 8. Start a new Trip
   const trip = await prisma.trip.create({
     data: {
       routeId: route.id,
@@ -133,21 +128,61 @@ async function main() {
   // --- SIMULATION LOOP ---
   console.log('\n--- Starting Simulation ---');
 
-  // Points: Gandhipuram -> Hopes -> PSG
-  const leg1 = interpolate(11.0168, 76.9558, 11.0274, 76.9533, 20); // 20 steps
-  const leg2 = interpolate(11.0274, 76.9533, 11.0241, 76.9636, 15); // 15 steps
+  // Build coordinates array for OSRM: start -> stops -> dest
+  const routeCoords: {lat: number, lng: number}[] = [];
+  if (route.startLat && route.startLng) routeCoords.push({lat: route.startLat, lng: route.startLng});
+  route.stops.forEach((s: any) => routeCoords.push({lat: s.latitude, lng: s.longitude}));
+  if (route.destLat && route.destLng) routeCoords.push({lat: route.destLat, lng: route.destLng});
 
-  const fullPath = [
-    ...leg1.map(p => ({ ...p, stopsCrossed: 0, targetSpeed: 30 })),
-    ...leg2.map(p => ({ ...p, stopsCrossed: 1, targetSpeed: 45 }))
-  ];
+  if (routeCoords.length < 2) {
+    console.error('Route does not have enough coordinates to simulate.');
+    return;
+  }
+
+  const coordsString = routeCoords.map(c => `${c.lng},${c.lat}`).join(';');
+  const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+
+  console.log('Fetching road path from OSRM...');
+  const osrmRes = await fetch(osrmUrl);
+  const osrmData = await osrmRes.json();
+  
+  if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {
+    console.error('Failed to fetch OSRM route:', osrmData);
+    return;
+  }
+
+  const rawCoords = osrmData.routes[0].geometry.coordinates;
+
+  // Convert raw polyline into a step-by-step path
+  const fullPath = [];
+  const stepSize = 1; // Visit every single point to flawlessly hug the road curves
+  for (let i = 0; i < rawCoords.length; i += stepSize) {
+    const [lon, lat] = rawCoords[i];
+    
+    // Calculate stops crossed based on proximity to stops
+    let stopsCrossed = 0;
+    for (let sIdx = 0; sIdx < route.stops.length; sIdx++) {
+      const stop = route.stops[sIdx];
+      const dist = Math.sqrt(Math.pow(lat - stop.latitude, 2) + Math.pow(lon - stop.longitude, 2));
+      // if within roughly 100m, consider it crossed
+      if (dist < 0.001 || (i > (rawCoords.length * ((sIdx + 1) / (route.stops.length + 1))))) {
+        stopsCrossed = sIdx + 1;
+      } else {
+        break;
+      }
+    }
+
+    fullPath.push({ latitude: lat, longitude: lon, stopsCrossed, targetSpeed: 30 + Math.random() * 15 });
+  }
+  // Make sure last point is exactly destination
+  const [destLon, destLat] = rawCoords[rawCoords.length - 1];
+  fullPath.push({ latitude: destLat, longitude: destLon, stopsCrossed: route.stops.length, targetSpeed: 0 });
 
   for (let i = 0; i < fullPath.length; i++) {
     const point = fullPath[i];
     if (!point) continue;
 
-    // Vary the speed slightly for realism
-    const speed = point.targetSpeed + (Math.random() * 10 - 5);
+    const speed = Math.max(0, point.targetSpeed + (Math.random() * 10 - 5));
 
     const payload = {
       vehicleId: vehicle.id,
@@ -174,8 +209,8 @@ async function main() {
       console.error('Error sending update:', err);
     }
 
-    // Wait 2.5 seconds between updates
-    await sleep(2500);
+    // Wait 500ms between updates for high-fidelity smooth animation
+    await sleep(500);
   }
 
   // End the trip
