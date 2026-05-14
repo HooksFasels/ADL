@@ -150,7 +150,6 @@ export default function PassengerDashboard() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(typeof e === 'string' ? e : (e as any).target?.value ?? '')}
           placeholder="Enter route code or location..."
-          className="bg-white border-gray-200 shadow-sm"
         />
 
         <div className="flex flex-col gap-3">
@@ -177,7 +176,7 @@ export default function PassengerDashboard() {
                       <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded uppercase tracking-wider">
                         {route.code}
                       </span>
-                      <Badge variant="success" className="text-[9px] px-1.5 py-0 leading-none">Live</Badge>
+                      <Badge variant="success">Live</Badge>
                     </div>
                     <h3 className="font-bold text-gray-900 text-sm leading-tight">
                       {route.startLocation} 

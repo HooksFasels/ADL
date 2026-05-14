@@ -90,6 +90,10 @@ async function main() {
   }
 
   const route = allRoutes[selectedRouteIndex];
+  if (!route) {
+    console.error('Failed to resolve selected route. Exiting.');
+    return;
+  }
   console.log(`\nSelected Route: ${route.code}`);
 
   // 6. Create Assignment
@@ -144,7 +148,7 @@ async function main() {
 
   console.log('Fetching road path from OSRM...');
   const osrmRes = await fetch(osrmUrl);
-  const osrmData = await osrmRes.json();
+  const osrmData = await osrmRes.json() as any;
   
   if (osrmData.code !== 'Ok' || !osrmData.routes || osrmData.routes.length === 0) {
     console.error('Failed to fetch OSRM route:', osrmData);
@@ -163,6 +167,7 @@ async function main() {
     let stopsCrossed = 0;
     for (let sIdx = 0; sIdx < route.stops.length; sIdx++) {
       const stop = route.stops[sIdx];
+      if (!stop) continue;
       const dist = Math.sqrt(Math.pow(lat - stop.latitude, 2) + Math.pow(lon - stop.longitude, 2));
       // if within roughly 100m, consider it crossed
       if (dist < 0.001 || (i > (rawCoords.length * ((sIdx + 1) / (route.stops.length + 1))))) {

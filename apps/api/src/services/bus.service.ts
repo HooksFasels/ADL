@@ -36,6 +36,9 @@ export class BusService {
   }
 
   async getActiveBuses() {
+    const STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+    const staleThresholdDate = new Date(Date.now() - STALE_THRESHOLD_MS);
+
     const activeTrips = await prisma.trip.findMany({
       where: { status: 'RUNNING' },
       include: {
@@ -47,7 +50,31 @@ export class BusService {
       },
     });
 
-    return activeTrips.map(trip => ({
+    // Separate fresh vs stale trips
+    const freshTrips = [];
+    const staleIds: string[] = [];
+
+    for (const trip of activeTrips) {
+      const lastLocation = trip.locations[0];
+      const isStale =
+        !lastLocation || new Date(lastLocation.recordedAt) < staleThresholdDate;
+
+      if (isStale) {
+        staleIds.push(trip.id);
+      } else {
+        freshTrips.push(trip);
+      }
+    }
+
+    // Auto-complete stale trips so they don't accumulate
+    if (staleIds.length > 0) {
+      await prisma.trip.updateMany({
+        where: { id: { in: staleIds } },
+        data: { status: 'COMPLETED', endedAt: new Date() },
+      });
+    }
+
+    return freshTrips.map(trip => ({
       vehicleId: trip.vehicleId,
       registration: trip.vehicle.registration,
       latitude: trip.locations[0]?.latitude,
