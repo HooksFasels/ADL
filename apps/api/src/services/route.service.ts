@@ -9,7 +9,7 @@ export class RouteService {
     this.repository = new RouteRepository();
   }
 
-  async createRoute(data: { code: string; name: string; city: string }) {
+  async createRoute(data: { code: string; city: string; startLocation?: string; destinationLocation?: string }) {
     const existing = await this.repository.findByCode(data.code);
     if (existing) {
       throw new ApiError(400, 'Route with this code already exists');

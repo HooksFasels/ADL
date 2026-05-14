@@ -15,7 +15,7 @@ export class TripService {
     this.routeRepository = new RouteRepository();
   }
 
-  async startTrip(data: { collegeId: string; vehicleId: string; routeId: string }) {
+  async startTrip(data: { vehicleId: string; routeId: string }) {
     // 1. Validate vehicle exists
     const vehicle = await this.vehicleRepository.findById(data.vehicleId);
     if (!vehicle) throw new ApiError(404, 'Vehicle not found');
@@ -24,14 +24,18 @@ export class TripService {
     const route = await this.routeRepository.findById(data.routeId);
     if (!route) throw new ApiError(404, 'Route not found');
 
-    // 3. Check if vehicle already has an active trip
+    // 3. Auto-handle existing active trips for this vehicle
     const activeTrip = await this.repository.findActiveTripByVehicle(data.vehicleId);
     if (activeTrip) {
-      throw new ApiError(400, 'Vehicle already has an active trip running');
+      // If it's already the same route, just return it
+      if (activeTrip.routeId === data.routeId) {
+        return activeTrip;
+      }
+      // If it's a different route, end the previous trip automatically
+      await this.endTrip(activeTrip.id);
     }
 
     return this.repository.create({
-      collegeId: data.collegeId,
       vehicleId: data.vehicleId,
       routeId: data.routeId,
       status: TripStatus.RUNNING,
@@ -52,8 +56,8 @@ export class TripService {
     });
   }
 
-  async getAllTrips(collegeId?: string) {
-    return this.repository.findAll(collegeId);
+  async getAllTrips() {
+    return this.repository.findAll();
   }
 
   async getTripById(id: string) {

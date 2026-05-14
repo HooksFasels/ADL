@@ -21,8 +21,7 @@ export class TripController {
   });
 
   public getAll = catchAsync(async (req: Request, res: Response) => {
-    const collegeId = req.query.collegeId as string;
-    const trips = await this.service.getAllTrips(collegeId);
+    const trips = await this.service.getAllTrips();
     res.send(new ApiResponse(trips));
   });
 

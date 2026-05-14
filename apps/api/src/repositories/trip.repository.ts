@@ -6,12 +6,11 @@ export class TripRepository {
     return prisma.trip.create({ data });
   }
 
-  async findAll(collegeId?: string) {
+  async findAll() {
     return prisma.trip.findMany({
-      where: collegeId ? { collegeId } : {},
       include: {
         vehicle: { select: { registration: true } },
-        route: { select: { name: true, code: true } }
+        route: { select: { code: true, startLocation: true, destinationLocation: true } }
       },
       orderBy: { startedAt: 'desc' }
     });

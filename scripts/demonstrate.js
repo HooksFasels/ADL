@@ -18,7 +18,7 @@
  *   node test-flow.js
  */
 
-const BASE_URL = "http://localhost:3009/api/v1";
+const BASE_URL = "http://localhost:4000/api/v1";
 const TOTAL_STEPS = 10;
 
 // ─── ANSI COLOURS & STYLES ───────────────────────────────────────────────────
@@ -175,7 +175,7 @@ function banner() {
   console.log();
   const sub = `${C.brightWhite}${C.bold}  ENTERPRISE TRANSPORT SYSTEM — FULL FLOW TESTER  ${C.reset}`;
   console.log(sub);
-  const version = `${C.brightBlack}  v2.0  •  ${TOTAL_STEPS} steps  •  localhost:3009  ${C.reset}`;
+  const version = `${C.brightBlack}  v2.0  •  ${TOTAL_STEPS} steps  •  localhost:4000  ${C.reset}`;
   console.log(version);
   console.log();
 }

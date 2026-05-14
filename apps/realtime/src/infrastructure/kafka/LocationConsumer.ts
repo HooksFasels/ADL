@@ -25,20 +25,28 @@ export class LocationConsumer {
     await this.consumer.run({
       eachMessage: async ({ topic, partition, message }: any) => {
         const payload = JSON.parse(message.value.toString());
-        console.log('📢 Broadcasting location update:', payload.vehicleId);
-        
-        // Broadcast to all connected websocket clients
+        console.log('📢 Broadcasting location update:', payload.vehicleId, '| status:', payload.status);
+
+        // Broadcast the full payload so passengers can:
+        // - filter by routeId  (to show only their bus)
+        // - display registration label
+        // - show status badge  (ACTIVE / STATIONARY / OFF_ROUTE / WRONG_DIRECTION)
+        // - show progress (stopsCrossed)
         this.connectionManager.broadcast('vehicle.location.updated', {
-          vehicleId: payload.vehicleId,
-          tripId: payload.tripId,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          speed: payload.speed,
-          recordedAt: payload.recordedAt
+          vehicleId:    payload.vehicleId,
+          tripId:       payload.tripId,
+          latitude:     payload.latitude,
+          longitude:    payload.longitude,
+          speed:        payload.speed,
+          status:       payload.status,
+          stopsCrossed: payload.stopsCrossed,
+          registration: payload.registration,
+          routeId:      payload.routeId,
+          recordedAt:   payload.recordedAt,
         });
       },
     });
-    
+
     console.log('✅ Kafka Location Consumer started');
   }
 }

@@ -10,6 +10,7 @@ const busController = new BusController(busService);
 
 router.post('/buses', busController.createBus);
 router.get('/buses', busController.getBuses);
+router.delete('/buses/:id', busController.deleteBus);
 router.get('/active', busController.getActive);
 
 export { router as busRoutes };
