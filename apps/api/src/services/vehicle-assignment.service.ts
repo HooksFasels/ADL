@@ -68,4 +68,26 @@ export class VehicleAssignmentService {
     await this.getAssignmentById(id);
     return this.repository.delete(id);
   }
+
+  async getAssignmentByDriverId(userId: string) {
+    const profile = await this.driverRepository.findByUserId(userId);
+    if (!profile) return null;
+
+    const assignment = await this.repository.findActiveAssignmentByDriver(profile.id);
+    
+    if (assignment) return assignment;
+
+    // Fallback: If no vehicle is assigned, return the static route/stop from the profile
+    if (profile.assignedRouteId) {
+      const route = await this.routeRepository.findById(profile.assignedRouteId);
+      return {
+        driverId: profile.id,
+        routeId: profile.assignedRouteId,
+        route: route,
+        vehicle: { registration: 'TBD', type: 'Assigned' } // Placeholder for UI
+      };
+    }
+
+    return null;
+  }
 }

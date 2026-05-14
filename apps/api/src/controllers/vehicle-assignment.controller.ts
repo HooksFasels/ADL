@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { VehicleAssignmentService } from '../services/vehicle-assignment.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { catchAsync } from '../utils/catchAsync';
+import { ApiError } from '../utils/ApiError';
 
 export class VehicleAssignmentController {
   private service: VehicleAssignmentService;
@@ -33,5 +34,12 @@ export class VehicleAssignmentController {
   public delete = catchAsync(async (req: Request, res: Response) => {
     await this.service.deleteAssignment(req.params.id as string);
     res.send(new ApiResponse(null, 'Assignment deleted successfully'));
+  });
+
+  public getByDriver = catchAsync(async (req: Request, res: Response) => {
+    const driverId = req.query.driverId as string;
+    if (!driverId) throw new ApiError(400, 'driverId is required');
+    const assignment = await this.service.getAssignmentByDriverId(driverId);
+    res.send(new ApiResponse(assignment));
   });
 }

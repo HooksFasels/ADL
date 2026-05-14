@@ -1,493 +1,251 @@
 import { useEffect, useState } from 'react';
-import { useBusStore } from '../../store/useBusStore';
-import { useRouteStore } from '../../store/useRouteStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Table, Card, Badge, Button, StatusDot } from '@repo/utils/ui';
-import type { Bus } from '@repo/utils/types';
-import { VehicleStatus } from '@repo/utils/types';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import { Users, Bus as BusIcon, AlertTriangle, TrendingUp, Settings, Activity } from 'lucide-react';
+import { Card, Button, Badge } from '@repo/utils/ui';
+import { api, type ServiceHealthSnapshot } from '../../services/api';
+import { Users, Route as RouteIcon, Bus as BusIcon, Activity } from 'lucide-react';
 
-const analyticsData = [
-  { time: '08:00', load: 45 },
-  { time: '10:00', load: 85 },
-  { time: '12:00', load: 60 },
-  { time: '14:00', load: 55 },
-  { time: '16:00', load: 90 },
-  { time: '18:00', load: 70 },
-];
+const POLL_INTERVAL_MS = 5000;
 
-const defaultVehicles: Bus[] = [
-  {
-    id: 'b1',
-    registration: 'KA-01-F-1234',
-    type: 'AC',
-    capacity: 48,
-    status: VehicleStatus.ACTIVE,
-  },
-  {
-    id: 'b2',
-    registration: 'KA-02-G-5511',
-    type: 'Non-AC',
-    capacity: 52,
-    status: VehicleStatus.INACTIVE,
-  },
-];
-
-interface AdminAction {
-  id: string;
-  action: string;
-  timestamp: string;
-}
-
-interface SystemParams {
-  gpsHeartbeatSeconds: number;
-  dispatchRefreshSeconds: number;
-  delayAlertMinutes: number;
-  maxAllowedSpeedKmh: number;
-}
-
-interface HealthService {
-  id: string;
-  name: string;
-  status: 'online' | 'offline' | 'busy';
-  uptime: string;
-  checkedAt: string;
-}
-
-const initialHealth: HealthService[] = [
-  {
-    id: 'api',
-    name: 'API Gateway',
-    status: 'online',
-    uptime: '99.98%',
-    checkedAt: new Date().toLocaleTimeString(),
-  },
-  {
-    id: 'ingest',
-    name: 'Telemetry Ingest',
-    status: 'online',
-    uptime: '99.92%',
-    checkedAt: new Date().toLocaleTimeString(),
-  },
-  {
-    id: 'realtime',
-    name: 'Realtime Stream',
-    status: 'busy',
-    uptime: '99.85%',
-    checkedAt: new Date().toLocaleTimeString(),
-  },
-  {
-    id: 'db',
-    name: 'Primary Database',
-    status: 'online',
-    uptime: '99.99%',
-    checkedAt: new Date().toLocaleTimeString(),
-  },
-];
-
-const statusBadgeVariant = (status: VehicleStatus) => {
-  if (status === VehicleStatus.ACTIVE) return 'success';
-  if (status === VehicleStatus.MAINTENANCE) return 'warning';
-  return 'danger';
+const INITIAL_SERVICE_HEALTH: ServiceHealthSnapshot = {
+  status: 'DOWN',
+  module: 'ADL-API',
+  service: 'api',
+  timestamp: '',
 };
 
 export default function AdminDashboard() {
   const { logout } = useAuthStore();
-  const { activeBuses, locations, setActiveBuses } = useBusStore();
-  const { routes } = useRouteStore();
-  const [vehicles, setVehicles] = useState<Bus[]>([]);
-  const [systemParams, setSystemParams] = useState<SystemParams>({
-    gpsHeartbeatSeconds: 5,
-    dispatchRefreshSeconds: 15,
-    delayAlertMinutes: 8,
-    maxAllowedSpeedKmh: 70,
+  const [stats, setStats] = useState({ drivers: 0, routes: 0, vehicles: 0 });
+  const [apiHealth, setApiHealth] = useState<ServiceHealthSnapshot>(INITIAL_SERVICE_HEALTH);
+  const [databaseHealth, setDatabaseHealth] = useState<ServiceHealthSnapshot>({
+    ...INITIAL_SERVICE_HEALTH,
+    service: 'database',
   });
-  const [healthServices, setHealthServices] = useState<HealthService[]>(initialHealth);
-  const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
-  const [vehicleForm, setVehicleForm] = useState({
-    registration: '',
-    type: '',
-    capacity: '40',
-    status: VehicleStatus.ACTIVE,
+  const [redisHealth, setRedisHealth] = useState<ServiceHealthSnapshot>({
+    ...INITIAL_SERVICE_HEALTH,
+    service: 'redis',
   });
-
-  const addActionLog = (action: string) => {
-    setAdminActions((prev) => [
-      {
-        id: `action-${Date.now()}-${prev.length}`,
-        action,
-        timestamp: new Date().toLocaleString(),
-      },
-      ...prev,
-    ]);
-  };
+  const [kafkaHealth, setKafkaHealth] = useState<ServiceHealthSnapshot>({
+    ...INITIAL_SERVICE_HEALTH,
+    service: 'kafka',
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
-    if (vehicles.length > 0) return;
-    const initialVehicles = activeBuses.length > 0 ? activeBuses : defaultVehicles;
-    setVehicles(initialVehicles);
-    if (activeBuses.length === 0) {
-      setActiveBuses(initialVehicles);
-    }
-  }, [activeBuses, setActiveBuses, vehicles.length]);
+    let cancelled = false;
 
-  const handleSaveSystemParams = () => {
-    addActionLog('Updated transit system parameters');
-  };
+    const fetchStats = async () => {
+      setIsRefreshing(true);
 
-  const handleRunHealthCheck = () => {
-    const statuses: Array<'online' | 'busy'> = ['online', 'online', 'busy'];
-    setHealthServices((prev) =>
-      prev.map((service) => ({
-        ...service,
-        status: statuses[Math.floor(Math.random() * statuses.length)],
-        checkedAt: new Date().toLocaleTimeString(),
-      })),
-    );
-    addActionLog('Ran system health checks');
-  };
+      try {
+        const [driversResult, routesResult, vehiclesResult, apiResult, databaseResult, redisResult, kafkaResult] =
+          await Promise.allSettled([
+          api.getDrivers(),
+          api.getRoutes(),
+          api.getBuses(),
+          api.getApiHealth(),
+          api.getDatabaseHealth(),
+          api.getRedisHealth(),
+          api.getKafkaHealth(),
+        ]);
 
-  const handleAddVehicle = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const registration = vehicleForm.registration.trim().toUpperCase();
-    const type = vehicleForm.type.trim();
-    const capacity = Number(vehicleForm.capacity);
-    if (!registration || !type || Number.isNaN(capacity) || capacity < 10) {
-      return;
-    }
-    const newVehicle: Bus = {
-      id: `b${Date.now()}`,
-      registration,
-      type,
-      capacity,
-      status: vehicleForm.status,
+        if (cancelled) return;
+
+        if (driversResult.status === 'fulfilled' && driversResult.value.success) {
+          setStats((current) => ({
+            ...current,
+            drivers: driversResult.value.data?.length || 0,
+          }));
+        }
+
+        if (routesResult.status === 'fulfilled' && routesResult.value.success) {
+          setStats((current) => ({
+            ...current,
+            routes: routesResult.value.data?.length || 0,
+          }));
+        }
+
+        if (vehiclesResult.status === 'fulfilled' && vehiclesResult.value.success) {
+          setStats((current) => ({
+            ...current,
+            vehicles: vehiclesResult.value.data?.length || 0,
+          }));
+        }
+
+        if (apiResult.status === 'fulfilled') {
+          setApiHealth(apiResult.value);
+        } else {
+          setApiHealth({
+            ...INITIAL_SERVICE_HEALTH,
+            service: 'api',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (databaseResult.status === 'fulfilled') {
+          setDatabaseHealth(databaseResult.value);
+        } else {
+          setDatabaseHealth({
+            ...INITIAL_SERVICE_HEALTH,
+            service: 'database',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (redisResult.status === 'fulfilled') {
+          setRedisHealth(redisResult.value);
+        } else {
+          setRedisHealth({
+            ...INITIAL_SERVICE_HEALTH,
+            service: 'redis',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (kafkaResult.status === 'fulfilled') {
+          setKafkaHealth(kafkaResult.value);
+        } else {
+          setKafkaHealth({
+            ...INITIAL_SERVICE_HEALTH,
+            service: 'kafka',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        setLastUpdated(new Date().toLocaleTimeString());
+      } catch (err) {
+        if (cancelled) return;
+
+        console.error('Failed to fetch system stats', err);
+        const now = new Date().toISOString();
+        setApiHealth({ ...INITIAL_SERVICE_HEALTH, service: 'api', timestamp: now });
+        setDatabaseHealth({ ...INITIAL_SERVICE_HEALTH, service: 'database', timestamp: now });
+        setRedisHealth({ ...INITIAL_SERVICE_HEALTH, service: 'redis', timestamp: now });
+        setKafkaHealth({ ...INITIAL_SERVICE_HEALTH, service: 'kafka', timestamp: now });
+        setLastUpdated(new Date().toLocaleTimeString());
+      } finally {
+        if (!cancelled) {
+          setIsRefreshing(false);
+        }
+      }
     };
-    const updated = [newVehicle, ...vehicles];
-    setVehicles(updated);
-    setActiveBuses(updated);
-    setVehicleForm({ registration: '', type: '', capacity: '40', status: VehicleStatus.ACTIVE });
-    addActionLog(`Added vehicle ${registration} to portal`);
-  };
 
-  const handleUpdateVehicleStatus = (vehicleId: string, status: VehicleStatus) => {
-    const updatedVehicles = vehicles.map((vehicle) =>
-      vehicle.id === vehicleId ? { ...vehicle, status } : vehicle,
-    );
-    setVehicles(updatedVehicles);
-    setActiveBuses(updatedVehicles);
-    addActionLog(`Changed vehicle status for ${vehicleId} to ${status}`);
-  };
+    void fetchStats();
+    const intervalId = window.setInterval(() => {
+      void fetchStats();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   return (
-    <div className="p-6 overflow-y-auto space-y-6">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Admin Control Panel</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRunHealthCheck}>
-            Run Health Check
-          </Button>
-          <Button variant="danger" onClick={logout}>
+        <div>
+          <h2 className="text-2xl font-bold">System Admin Dashboard</h2>
+          <p className="text-gray-500">
+            Live resource counts refreshed every {POLL_INTERVAL_MS / 1000} seconds
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant={
+              apiHealth.status === 'UP' &&
+              databaseHealth.status === 'UP' &&
+              redisHealth.status === 'UP'
+                ? 'success'
+                : 'warning'
+            }
+          >
+            {apiHealth.status === 'UP' &&
+            databaseHealth.status === 'UP' &&
+            redisHealth.status === 'UP'
+              ? 'UP'
+              : 'DEGRADED'}
+          </Badge>
+          <span className="text-xs text-gray-500">
+            {isRefreshing
+              ? 'Refreshing now'
+              : lastUpdated
+                ? `Last updated ${lastUpdated}`
+                : 'Waiting for first refresh'}
+          </span>
+          <Button variant="outline" onClick={logout}>
             Logout
           </Button>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
-            <BusIcon />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Active Fleet</p>
-            <p className="text-xl font-bold">
-              {vehicles.filter((vehicle) => vehicle.status === VehicleStatus.ACTIVE).length} /{' '}
-              {vehicles.length}
-            </p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-4">
-          <div className="p-3 bg-green-100 text-green-600 rounded-full">
+          <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
             <Users />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Total Passengers</p>
-            <p className="text-xl font-bold">1,240</p>
+            <p className="text-sm text-gray-500">Total Drivers</p>
+            <p className="text-2xl font-bold">{stats.drivers}</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full">
-            <AlertTriangle />
+          <div className="p-3 bg-purple-100 text-purple-600 rounded-lg">
+            <RouteIcon />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Open Alerts</p>
-            <p className="text-xl font-bold">
-              {healthServices.filter((service) => service.status !== 'online').length}
-            </p>
+            <p className="text-sm text-gray-500">Total Routes</p>
+            <p className="text-2xl font-bold">{stats.routes}</p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
-            <TrendingUp />
+          <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+            <BusIcon />
           </div>
           <div>
-            <p className="text-sm text-gray-500">On-Time Performance</p>
-            <p className="text-xl font-bold">94%</p>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="space-y-4">
-          <div className="flex items-center gap-3 text-blue-700">
-            <Activity size={20} />
-            <h3 className="font-bold">System Health</h3>
-          </div>
-          <div className="space-y-3">
-            {healthServices.map((service) => (
-              <div
-                key={service.id}
-                className="border rounded-md p-3 flex justify-between items-center"
-              >
-                <div>
-                  <p className="font-semibold">{service.name}</p>
-                  <p className="text-xs text-gray-500">
-                    Uptime {service.uptime} | Checked {service.checkedAt}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusDot status={service.status} />
-                  <span className="text-sm capitalize">{service.status}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="space-y-4">
-          <div className="flex items-center gap-3 text-blue-700">
-            <Settings size={20} />
-            <h3 className="font-bold">System Parameters</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              <span className="block mb-1 text-gray-600">GPS Heartbeat (sec)</span>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded-md px-2 py-1.5"
-                value={systemParams.gpsHeartbeatSeconds}
-                onChange={(event) =>
-                  setSystemParams((prev) => ({
-                    ...prev,
-                    gpsHeartbeatSeconds: Number(event.target.value) || 0,
-                  }))
-                }
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block mb-1 text-gray-600">Dispatch Refresh (sec)</span>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded-md px-2 py-1.5"
-                value={systemParams.dispatchRefreshSeconds}
-                onChange={(event) =>
-                  setSystemParams((prev) => ({
-                    ...prev,
-                    dispatchRefreshSeconds: Number(event.target.value) || 0,
-                  }))
-                }
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block mb-1 text-gray-600">Delay Alert (min)</span>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded-md px-2 py-1.5"
-                value={systemParams.delayAlertMinutes}
-                onChange={(event) =>
-                  setSystemParams((prev) => ({
-                    ...prev,
-                    delayAlertMinutes: Number(event.target.value) || 0,
-                  }))
-                }
-              />
-            </label>
-            <label className="text-sm">
-              <span className="block mb-1 text-gray-600">Max Speed (km/h)</span>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded-md px-2 py-1.5"
-                value={systemParams.maxAllowedSpeedKmh}
-                onChange={(event) =>
-                  setSystemParams((prev) => ({
-                    ...prev,
-                    maxAllowedSpeedKmh: Number(event.target.value) || 0,
-                  }))
-                }
-              />
-            </label>
-          </div>
-          <Button onClick={handleSaveSystemParams}>Save Parameters</Button>
-        </Card>
-      </div>
-
-      <Card className="space-y-4">
-        <h3 className="font-bold">Add Vehicle to Portal</h3>
-        <form className="grid grid-cols-1 md:grid-cols-5 gap-3" onSubmit={handleAddVehicle}>
-          <input
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Registration (KA-09-AB-1111)"
-            value={vehicleForm.registration}
-            onChange={(event) =>
-              setVehicleForm((prev) => ({ ...prev, registration: event.target.value }))
-            }
-          />
-          <input
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Vehicle type"
-            value={vehicleForm.type}
-            onChange={(event) => setVehicleForm((prev) => ({ ...prev, type: event.target.value }))}
-          />
-          <input
-            type="number"
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Capacity"
-            value={vehicleForm.capacity}
-            onChange={(event) =>
-              setVehicleForm((prev) => ({ ...prev, capacity: event.target.value }))
-            }
-          />
-          <select
-            className="border border-gray-300 rounded-md px-3 py-2 bg-white"
-            value={vehicleForm.status}
-            onChange={(event) =>
-              setVehicleForm((prev) => ({ ...prev, status: event.target.value as VehicleStatus }))
-            }
-          >
-            <option value={VehicleStatus.ACTIVE}>ACTIVE</option>
-            <option value={VehicleStatus.INACTIVE}>INACTIVE</option>
-            <option value={VehicleStatus.MAINTENANCE}>MAINTENANCE</option>
-          </select>
-          <Button type="submit">Add Vehicle</Button>
-        </form>
-      </Card>
-
-      {/* Fleet Monitoring Table */}
-      <Card>
-        <h3 className="font-bold mb-4">Fleet Management Monitor</h3>
-        <Table headers={['Vehicle', 'Type', 'Route', 'Speed', 'Status', 'Manage']}>
-          {vehicles.length > 0 ? (
-            vehicles.map((bus) => {
-              const lastLoc = locations[bus.id];
-              return (
-                <tr key={bus.id}>
-                  <td className="px-6 py-4 font-semibold">{bus.registration}</td>
-                  <td className="px-6 py-4">{bus.type}</td>
-                  <td className="px-6 py-4">
-                    {routes[0] ? `${routes[0].code} - ${routes[0].name}` : 'Unassigned'}
-                  </td>
-                  <td className="px-6 py-4">{lastLoc?.speed || 0} km/h</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <StatusDot status={bus.status === VehicleStatus.ACTIVE ? 'online' : 'busy'} />
-                      <Badge variant={statusBadgeVariant(bus.status)}>{bus.status}</Badge>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUpdateVehicleStatus(bus.id, VehicleStatus.ACTIVE)}
-                      >
-                        Active
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUpdateVehicleStatus(bus.id, VehicleStatus.MAINTENANCE)}
-                      >
-                        Maint.
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })
-          ) : (
-            <tr>
-              <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                No active vehicles tracked.
-              </td>
-            </tr>
-          )}
-        </Table>
-      </Card>
-
-      {/* Analytics Chart */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="h-80">
-          <h3 className="font-bold mb-4">Passenger Load (24h)</h3>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={analyticsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="load" stroke="#2563eb" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card>
-          <h3 className="font-bold mb-4">Service Alerts</h3>
-          <div className="space-y-3">
-            <div className="p-3 border-l-4 border-yellow-500 bg-yellow-50 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-yellow-800">Commuter Delay</p>
-                <p className="text-sm text-yellow-700">
-                  Route 101 - Traffic congestion at Central Mall
-                </p>
-              </div>
-              <Badge variant="warning">+15m</Badge>
-            </div>
-            <div className="p-3 border-l-4 border-red-500 bg-red-50 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-red-800">Vehicle Offline</p>
-                <p className="text-sm text-red-700">Bus KA-01-F-1234 - GPS Link Terminal Failure</p>
-              </div>
-              <Badge variant="danger">URGENT</Badge>
-            </div>
+            <p className="text-sm text-gray-500">Total Vehicles</p>
+            <p className="text-2xl font-bold">{stats.vehicles}</p>
           </div>
         </Card>
       </div>
 
       <Card>
-        <h3 className="font-bold mb-4">Admin Activity Log</h3>
-        {adminActions.length === 0 ? (
-          <p className="text-sm text-gray-500">No actions recorded in this session.</p>
-        ) : (
-          <div className="space-y-2">
-            {adminActions.slice(0, 8).map((entry) => (
-              <div
-                key={entry.id}
-                className="border rounded-md px-3 py-2 flex justify-between items-center"
-              >
-                <p className="text-sm font-medium">{entry.action}</p>
-                <span className="text-xs text-gray-500">{entry.timestamp}</span>
-              </div>
-            ))}
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <Activity className="text-green-600" /> System Health
+        </h3>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+            <span>API Server</span>
+            <Badge variant={apiHealth.status === 'UP' ? 'success' : 'danger'}>
+              {apiHealth.status}
+            </Badge>
           </div>
-        )}
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+            <span>Database</span>
+            <Badge variant={databaseHealth.status === 'UP' ? 'success' : 'danger'}>
+              {databaseHealth.status}
+            </Badge>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+            <span>Redis</span>
+            <Badge variant={redisHealth.status === 'UP' ? 'success' : 'danger'}>
+              {redisHealth.status}
+            </Badge>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+            <span>Kafka</span>
+            <Badge variant={kafkaHealth.status === 'UP' ? 'success' : 'warning'}>
+              {kafkaHealth.status}
+            </Badge>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+            <span>Dashboard Polling</span>
+            <Badge variant={isRefreshing ? 'warning' : 'success'}>
+              {isRefreshing ? 'Refreshing' : `Every ${POLL_INTERVAL_MS / 1000}s`}
+            </Badge>
+          </div>
+        </div>
       </Card>
     </div>
   );

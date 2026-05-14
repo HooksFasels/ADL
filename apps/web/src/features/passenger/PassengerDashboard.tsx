@@ -8,7 +8,7 @@ import { SearchInput, Card, Badge, Spinner } from '@repo/utils/ui';
 
 export default function PassengerDashboard() {
   const { routes, setRoutes, selectedRouteId, setSelectedRoute, isLoading, setLoading } = useRouteStore();
-  const { locations } = useBusStore();
+  const { locations, updateLocation } = useBusStore();
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -24,7 +24,30 @@ export default function PassengerDashboard() {
         setLoading(false);
       }
     };
+
+    const fetchActiveBuses = async () => {
+      if (import.meta.env.VITE_USE_MOCK === 'true') return;
+      try {
+        const res = await api.getActiveBuses();
+        if (res.success && res.data) {
+          res.data.forEach((bus: any) => {
+            updateLocation({
+              vehicleId: bus.vehicleId,
+              latitude: bus.latitude,
+              longitude: bus.longitude,
+              speed: bus.speed,
+              recordedAt: bus.recordedAt,
+              tripId: bus.tripId
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch active buses', err);
+      }
+    };
+
     fetchRoutes();
+    fetchActiveBuses();
   }, []);
 
   return (

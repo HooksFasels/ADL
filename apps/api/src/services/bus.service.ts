@@ -1,16 +1,12 @@
-import { PrismaService } from 'db/client';
-
-const prisma = new PrismaService().getClient();
+import { prisma } from '../config/database';
 
 export class BusService {
   async createBus(data: {
-    collegeId: string;
     registration: string;
     capacity: number;
-    gpsDeviceId?: string;
     type?: string;
+    status?: string;
   }) {
-    // Business logic separation
     const existingBus = await prisma.vehicle.findUnique({
       where: { registration: data.registration }
     });
@@ -19,22 +15,42 @@ export class BusService {
       throw new Error('A bus with this registration already exists.');
     }
 
-    const newBus = await prisma.vehicle.create({
+    return prisma.vehicle.create({
       data: {
-        collegeId: data.collegeId,
         registration: data.registration,
         capacity: data.capacity,
-        gpsDeviceId: data.gpsDeviceId,
         type: data.type || 'Standard Bus',
+        status: (data.status as any) || 'ACTIVE',
       }
     });
-
-    return newBus;
   }
 
-  async getAllBuses(collegeId: string) {
+  async getAllBuses() {
     return prisma.vehicle.findMany({
-      where: { collegeId }
+      orderBy: { createdAt: 'desc' }
     });
+  }
+
+  async getActiveBuses() {
+    const activeTrips = await prisma.trip.findMany({
+      where: { status: 'RUNNING' },
+      include: {
+        vehicle: true,
+        locations: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return activeTrips.map(trip => ({
+      vehicleId: trip.vehicleId,
+      registration: trip.vehicle.registration,
+      latitude: trip.locations[0]?.latitude,
+      longitude: trip.locations[0]?.longitude,
+      speed: trip.locations[0]?.speed,
+      recordedAt: trip.locations[0]?.recordedAt,
+      tripId: trip.id,
+    }));
   }
 }

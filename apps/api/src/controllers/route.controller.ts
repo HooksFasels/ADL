@@ -16,8 +16,7 @@ export class RouteController {
   });
 
   public getAll = catchAsync(async (req: Request, res: Response) => {
-    const collegeId = req.query.collegeId as string;
-    const routes = await this.service.getAllRoutes(collegeId);
+    const routes = await this.service.getAllRoutes();
     res.send(new ApiResponse(routes));
   });
 

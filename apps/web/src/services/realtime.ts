@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { useBusStore } from '../store/useBusStore';
 import type { BusLocationUpdate } from '@repo/utils/types';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3009';
 
 class RealtimeService {
   private socket: Socket | null = null;
