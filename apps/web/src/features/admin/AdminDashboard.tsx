@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Card, Badge } from '@repo/utils/ui';
-import { api, type ServiceHealthSnapshot } from '../../services/api';
+import { api } from '../../services/api';
 import { Users, Route as RouteIcon, Bus as BusIcon, Activity } from 'lucide-react';
+
+type ServiceHealthSnapshot = {
+  status: 'UP' | 'DOWN';
+  module: string;
+  service: string;
+  timestamp: string;
+};
 
 const POLL_INTERVAL_MS = 5000;
 
