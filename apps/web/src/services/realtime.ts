@@ -9,7 +9,11 @@ class RealtimeService {
   private destroyed = false;
 
   connect() {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)
+    )
+      return;
 
     this.destroyed = false;
     console.log('[Realtime] Connecting to', WS_URL);
@@ -30,16 +34,16 @@ class RealtimeService {
         if (msg.event === 'vehicle.location.updated' && msg.data) {
           const d = msg.data;
           const update: BusLocationUpdate = {
-            vehicleId:    d.vehicleId,
-            latitude:     d.latitude,
-            longitude:    d.longitude,
-            speed:        d.speed ?? 0,
-            status:       d.status,
+            vehicleId: d.vehicleId,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            speed: d.speed ?? 0,
+            status: d.status,
             stopsCrossed: d.stopsCrossed,
             registration: d.registration,
-            routeId:      d.routeId,
-            recordedAt:   d.recordedAt ?? new Date().toISOString(),
-            timestamp:    d.recordedAt ? new Date(d.recordedAt).getTime() : Date.now(),
+            routeId: d.routeId,
+            recordedAt: d.recordedAt ?? new Date().toISOString(),
+            timestamp: d.recordedAt ? new Date(d.recordedAt).getTime() : Date.now(),
           };
           useBusStore.getState().updateLocation(update);
         }

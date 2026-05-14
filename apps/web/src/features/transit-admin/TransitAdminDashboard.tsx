@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../services/api';
-import { Users, Route as RouteIcon, Bus, MapPin, Link2, XCircle, LogOut, Trash2 } from 'lucide-react';
+import { Users, Route as RouteIcon, Bus, MapPin, Link2, XCircle, Trash2 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -46,7 +46,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function TransitAdminDashboard() {
-  const { logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>('drivers');
   const [flash, setFlash] = useState<Flash>(null);
 
@@ -168,25 +168,22 @@ export default function TransitAdminDashboard() {
   const btn = (color: string) => `w-full py-2 px-4 rounded-lg text-white text-sm font-semibold ${color} hover:opacity-90 transition`;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-full min-h-0 bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm shrink-0">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900">Transit Admin Dashboard</h1>
           <p className="text-sm text-gray-500">Manage fleet, drivers, routes and assignments</p>
         </div>
-        <button onClick={logout} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-          <LogOut size={15} /> Logout
-        </button>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b px-6 flex gap-1 shrink-0">
+      <div className="bg-white border-b px-4 md:px-6 flex gap-1 shrink-0 overflow-x-auto no-scrollbar">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
               tab === t.id
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -199,7 +196,7 @@ export default function TransitAdminDashboard() {
 
       {/* Flash */}
       {flash && (
-        <div className={`mx-6 mt-4 px-4 py-3 rounded-lg text-sm font-medium shrink-0 ${
+        <div className={`mx-4 md:mx-6 mt-4 px-4 py-3 rounded-lg text-sm font-medium shrink-0 ${
           flash.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
         }`}>
           {flash.text}
@@ -207,13 +204,13 @@ export default function TransitAdminDashboard() {
       )}
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-hidden p-6">
-        <div className="h-full flex gap-6">
+      <div className="flex-1 overflow-hidden p-4 md:p-6">
+        <div className="h-full flex flex-col md:flex-row gap-6">
 
           {/* ── DRIVERS ── */}
           {tab === 'drivers' && (
             <>
-              <div className="w-80 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3 overflow-y-auto">
+              <div className="w-full md:w-80 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3 overflow-y-auto">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><Users size={16} className="text-blue-600" /> New Driver</h2>
                 <form onSubmit={onCreateDriver} className="flex flex-col gap-2">
                   <input className={inp} placeholder="Full Name" value={driverForm.name} onChange={e => setDriverForm({ ...driverForm, name: e.currentTarget.value })} required />
@@ -228,7 +225,7 @@ export default function TransitAdminDashboard() {
                   <button type="submit" className={btn('bg-blue-600 mt-1')}>Register Driver</button>
                 </form>
               </div>
-              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-auto">
+              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase sticky top-0">
                     <tr>{['Name', 'Email', 'Phone', 'License', 'Route', 'Active', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
@@ -258,7 +255,7 @@ export default function TransitAdminDashboard() {
           {/* ── ROUTES ── */}
           {tab === 'routes' && (
             <>
-              <div className="w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+              <div className="w-full md:w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><RouteIcon size={16} className="text-purple-600" /> New Route</h2>
                 <form onSubmit={onCreateRoute} className="flex flex-col gap-2">
                   <input className={inp} placeholder="Code (e.g. 101)" value={routeForm.code} onChange={e => setRouteForm({ ...routeForm, code: e.currentTarget.value })} required />
@@ -310,7 +307,7 @@ export default function TransitAdminDashboard() {
                     {routeForm.destLat && <Marker position={[parseFloat(routeForm.destLat), parseFloat(routeForm.destLng)]} icon={DefaultIcon} />}
                   </MapContainer>
                 </div>
-                <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-auto">
+                <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase sticky top-0">
                     <tr>{['Code', 'City', 'Origin', 'Destination', 'Stops', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
@@ -340,7 +337,7 @@ export default function TransitAdminDashboard() {
           {/* ── STOPS ── */}
           {tab === 'stops' && (
             <>
-              <div className="w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+              <div className="w-full md:w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><MapPin size={16} className="text-red-600" /> New Stop</h2>
                 <form onSubmit={onCreateStop} className="flex flex-col gap-2">
                   <select className={sel} value={stopForm.routeId} onChange={e => {
@@ -391,7 +388,7 @@ export default function TransitAdminDashboard() {
                     ))}
                   </MapContainer>
                 </div>
-                <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-auto">
+                <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase sticky top-0">
                     <tr>{['Route', 'Stop Name', 'Latitude', 'Longitude', 'Seq', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
@@ -421,7 +418,7 @@ export default function TransitAdminDashboard() {
           {/* ── VEHICLES ── */}
           {tab === 'vehicles' && (
             <>
-              <div className="w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+              <div className="w-full md:w-72 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><Bus size={16} className="text-orange-600" /> New Vehicle</h2>
                 <form onSubmit={onCreateVehicle} className="flex flex-col gap-2">
                   <input className={inp} placeholder="Registration No." value={vehicleForm.registration} onChange={e => setVehicleForm({ ...vehicleForm, registration: e.currentTarget.value })} required />
@@ -435,7 +432,7 @@ export default function TransitAdminDashboard() {
                   <button type="submit" className={btn('bg-orange-600 mt-1')}>Add Vehicle</button>
                 </form>
               </div>
-              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-auto">
+              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase sticky top-0">
                     <tr>{['Reg No', 'Type', 'Capacity', 'Status', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
@@ -469,7 +466,7 @@ export default function TransitAdminDashboard() {
           {/* ── ASSIGNMENTS ── */}
           {tab === 'assignments' && (
             <>
-              <div className="w-80 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+              <div className="w-full md:w-80 shrink-0 bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><Link2 size={16} className="text-emerald-600" /> New Assignment</h2>
                 <form onSubmit={onCreateAssign} className="flex flex-col gap-2">
                   <div>
@@ -496,7 +493,7 @@ export default function TransitAdminDashboard() {
                   <button type="submit" className={btn('bg-emerald-600 mt-2')}>Assign Now</button>
                 </form>
               </div>
-              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-auto">
+              <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase sticky top-0">
                     <tr>{['Driver', 'Vehicle', 'Route', 'Started', 'Status', 'Actions'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
