@@ -1,33 +1,7 @@
 import axios from 'axios';
 import type { ApiResponse, Route, Stop, Bus } from '@repo/utils/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3009';
-
-export interface HealthSnapshot {
-  status: 'UP' | 'DEGRADED';
-  module: string;
-  services: {
-    api: 'UP' | 'DOWN';
-    database: 'UP' | 'DOWN';
-    redis: 'UP' | 'DOWN';
-    kafka: 'UP' | 'DOWN';
-  };
-  timestamp: string;
-}
-
-export interface DatabaseHealthSnapshot {
-  status: 'UP' | 'DOWN';
-  module: string;
-  service: 'database';
-  timestamp: string;
-}
-
-export interface ServiceHealthSnapshot {
-  status: 'UP' | 'DOWN';
-  module: string;
-  service: 'api' | 'database' | 'redis' | 'kafka';
-  timestamp: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 const client = axios.create({
   baseURL: API_BASE_URL,

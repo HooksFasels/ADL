@@ -83,6 +83,7 @@ export interface BusLocationUpdate extends GPSReading {
   registration?: string;
   routeId?: string;
   timestamp?: number; // unix ms – set by the frontend WS hook
+  heading?: number; // Rotation angle in degrees
 }
 
 export interface ApiResponse<T> {

@@ -25,33 +25,51 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; label: string 
   'DRIVER UNREACHABLE': { bg: '#6b7280', border: '#4b5563', label: '⚪' },
 };
 
-const createBusIcon = (registration: string, status?: string) => {
+const createBusIcon = (heading: number, status?: string) => {
   const cfg = STATUS_COLORS[status ?? 'ACTIVE'] ?? STATUS_COLORS.ACTIVE;
-  const shortReg = registration.length > 8 ? registration.slice(-8) : registration;
   return L.divIcon({
-    className: 'bus-marker',
+    className: '', // Avoid default leaflet square
+    iconSize: [28, 56], // Fixed miniature size
+    iconAnchor: [14, 28], // Center anchor
+    popupAnchor: [0, -28],
     html: `
       <div style="
-        background:${cfg.bg};
-        border:2px solid ${cfg.border};
-        border-radius:8px;
-        padding:2px 5px;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        box-shadow:0 2px 6px rgba(0,0,0,0.35);
-        min-width:52px;
+        width: 28px;
+        height: 56px;
+        transform: rotate(${heading}deg);
+        transform-origin: center center;
+        transition: transform 0.3s ease-out;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
       ">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white">
-          <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM6 10V6h12v4H6z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 128" width="100%" height="100%">
+          <!-- Wheels -->
+          <rect x="4" y="24" width="6" height="20" rx="3" fill="#0f172a"/>
+          <rect x="54" y="24" width="6" height="20" rx="3" fill="#0f172a"/>
+          <rect x="4" y="84" width="6" height="20" rx="3" fill="#0f172a"/>
+          <rect x="54" y="84" width="6" height="20" rx="3" fill="#0f172a"/>
+          
+          <!-- Bus Body -->
+          <rect x="8" y="4" width="48" height="120" rx="14" fill="${cfg.bg}"/>
+          
+          <!-- Windshield -->
+          <path d="M12 26 Q32 18 52 26 L48 38 L16 38 Z" fill="#1e293b" opacity="0.9"/>
+          
+          <!-- Back window -->
+          <rect x="16" y="104" width="32" height="12" rx="3" fill="#1e293b" opacity="0.8"/>
+          
+          <!-- Roof AC Unit -->
+          <rect x="20" y="52" width="24" height="36" rx="4" fill="${cfg.border}" opacity="0.9"/>
+          
+          <!-- Front Headlights -->
+          <circle cx="18" cy="8" r="3" fill="#fef08a" filter="drop-shadow(0 0 4px #fef08a)"/>
+          <circle cx="46" cy="8" r="3" fill="#fef08a" filter="drop-shadow(0 0 4px #fef08a)"/>
+
+          <!-- Tail lights -->
+          <circle cx="16" cy="120" r="2" fill="#ef4444" />
+          <circle cx="48" cy="120" r="2" fill="#ef4444" />
         </svg>
-        <span style="color:white;font-size:9px;font-weight:700;letter-spacing:0.5px;line-height:1.2;margin-top:1px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${shortReg}</span>
       </div>
-      <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${cfg.bg};margin:0 auto;"></div>
     `,
-    iconSize: [64, 52],
-    iconAnchor: [32, 52],
-    popupAnchor: [0, -54],
   });
 };
 
@@ -119,6 +137,89 @@ function getNextStopIndex(stops: any[], loc: BusLocationUpdate): number {
     if (d < minDist) { minDist = d; nextIdx = i; }
   });
   return nextIdx;
+}
+
+function RoadRoutePolyline({
+  route,
+  routeCoords,
+  isSelected,
+  busLocation,
+}: {
+  route: any;
+  routeCoords: [number, number][];
+  isSelected: boolean;
+  busLocation?: [number, number];
+}) {
+  const [roadPath, setRoadPath] = useState<[number, number][] | null>(null);
+
+  const coordsString = useMemo(() => routeCoords.map(c => `${c[1]},${c[0]}`).join(';'), [JSON.stringify(routeCoords)]);
+
+  useEffect(() => {
+    if (!coordsString || routeCoords.length < 2) return;
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.code === 'Ok' && data.routes?.length > 0) {
+          const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+          setRoadPath(coords);
+        }
+      })
+      .catch(console.error);
+  }, [coordsString]);
+
+  const displayCoords = roadPath || routeCoords;
+
+  if (!isSelected) {
+    return (
+      <Polyline
+        positions={displayCoords}
+        color="#93c5fd"
+        weight={3}
+        opacity={0.5}
+      />
+    );
+  }
+
+  let splitIndexInRoadPath = 0;
+  if (busLocation && displayCoords.length > 0) {
+    let minD = Infinity;
+    displayCoords.forEach((pt, idx) => {
+      const d = getDistanceKm(pt[0], pt[1], busLocation[0], busLocation[1]);
+      if (d < minD) {
+        minD = d;
+        splitIndexInRoadPath = idx;
+      }
+    });
+  } else if (!roadPath) {
+    splitIndexInRoadPath = 0;
+  } else {
+    splitIndexInRoadPath = 0;
+  }
+
+  const completedCoords = displayCoords.slice(0, Math.min(splitIndexInRoadPath + 1, displayCoords.length));
+  const remainingCoords = displayCoords.slice(Math.max(splitIndexInRoadPath, 0));
+
+  return (
+    <>
+      {completedCoords.length >= 2 && (
+        <Polyline
+          positions={completedCoords}
+          color="#6b7280"
+          weight={5}
+          opacity={0.7}
+          dashArray="8 4"
+        />
+      )}
+      {remainingCoords.length >= 2 && (
+        <Polyline
+          positions={remainingCoords}
+          color="#1d4ed8"
+          weight={5}
+          opacity={0.85}
+        />
+      )}
+    </>
+  );
 }
 
 // ── Bus Status Panel (bottom-left of map) ───────────────────────────────────
@@ -291,45 +392,19 @@ export default function MapView() {
           if (routeCoords.length < 2) return null;
 
           const isSelected = route.id === selectedRouteId;
-          const progressBus = busLocations.find(b => (b.stopsCrossed ?? 0) > 0);
-          const offset = (route.startLat && route.startLng) ? 1 : 0;
-          const splitIdx = (progressBus?.stopsCrossed ?? 0) + offset;
-
-          if (!isSelected) {
-            return (
-              <Polyline
-                key={route.id}
-                positions={routeCoords}
-                color="#93c5fd"
-                weight={3}
-                opacity={0.5}
-              />
-            );
-          }
-
-          const completedCoords = routeCoords.slice(0, Math.min(splitIdx + 1, routeCoords.length));
-          const remainingCoords = routeCoords.slice(Math.max(splitIdx, 0));
+          const progressBus = busLocations.find(b => b.routeId === route.id && b.latitude != null && b.longitude != null);
+          const busLoc: [number, number] | undefined = progressBus && progressBus.latitude != null && progressBus.longitude != null 
+            ? [progressBus.latitude, progressBus.longitude] 
+            : undefined;
 
           return (
-            <span key={route.id}>
-              {completedCoords.length >= 2 && (
-                <Polyline
-                  positions={completedCoords}
-                  color="#6b7280"
-                  weight={5}
-                  opacity={0.7}
-                  dashArray="8 4"
-                />
-              )}
-              {remainingCoords.length >= 2 && (
-                <Polyline
-                  positions={remainingCoords}
-                  color="#1d4ed8"
-                  weight={5}
-                  opacity={0.85}
-                />
-              )}
-            </span>
+            <RoadRoutePolyline
+              key={route.id}
+              route={route}
+              routeCoords={routeCoords}
+              isSelected={isSelected}
+              busLocation={busLoc}
+            />
           );
         })}
 
@@ -400,7 +475,8 @@ export default function MapView() {
               <Marker
                 key={loc.vehicleId}
                 position={[loc.latitude, loc.longitude]}
-                icon={createBusIcon(reg, loc.status)}
+                icon={createBusIcon(loc.heading ?? 0, loc.status)}
+                zIndexOffset={1000}
                 eventHandlers={{ click: () => setSelectedBus(loc.vehicleId === selectedBus ? null : loc.vehicleId) }}
               >
                 <Popup>
