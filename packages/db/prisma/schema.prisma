@@ -89,6 +89,7 @@ model Vehicle {
 model Route {
   id                  String  @id @default(uuid())
   code                String  @unique
+  name                String
   city                String
   startLocation       String?
   destinationLocation String?

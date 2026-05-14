@@ -130,7 +130,7 @@ export class AdminController {
 
   public createStop = catchAsync(async (req: Request, res: Response) => {
     const { routeId, name, latitude, longitude, sequence } = req.body;
-    if (!routeId || !name || !latitude || !longitude || !sequence) {
+    if (!routeId || !name || latitude === undefined || longitude === undefined || sequence === undefined) {
       throw new ApiError(400, 'routeId, name, latitude, longitude, and sequence are required');
     }
 
