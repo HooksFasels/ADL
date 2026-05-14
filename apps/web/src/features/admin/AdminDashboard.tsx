@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useAuthStore } from '../../store/useAuthStore';
 import { Card, Badge } from '@repo/utils/ui';
 import { api } from '../../services/api';
 import { Users, Route as RouteIcon, Bus as BusIcon, Activity } from 'lucide-react';
@@ -21,7 +20,6 @@ const INITIAL_SERVICE_HEALTH: ServiceHealthSnapshot = {
 };
 
 export default function AdminDashboard() {
-  const { user } = useAuthStore();
   const [stats, setStats] = useState({ drivers: 0, routes: 0, vehicles: 0 });
   const [apiHealth, setApiHealth] = useState<ServiceHealthSnapshot>(INITIAL_SERVICE_HEALTH);
   const [databaseHealth, setDatabaseHealth] = useState<ServiceHealthSnapshot>({
@@ -46,8 +44,15 @@ export default function AdminDashboard() {
       setIsRefreshing(true);
 
       try {
-        const [driversResult, routesResult, vehiclesResult, apiResult, databaseResult, redisResult, kafkaResult] =
-          await Promise.allSettled([
+        const [
+          driversResult,
+          routesResult,
+          vehiclesResult,
+          apiResult,
+          databaseResult,
+          redisResult,
+          kafkaResult,
+        ] = await Promise.allSettled([
           api.getDrivers(),
           api.getRoutes(),
           api.getBuses(),

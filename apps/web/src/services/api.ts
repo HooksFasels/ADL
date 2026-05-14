@@ -1,6 +1,29 @@
 import axios from 'axios';
 import type { ApiResponse, Route, Stop, Bus } from '@repo/utils/types';
 
+type ServiceStatus = 'UP' | 'DOWN';
+
+type ServiceHealthSnapshot = {
+  status: ServiceStatus;
+  module: string;
+  service: string;
+  timestamp: string;
+};
+
+type DatabaseHealthSnapshot = ServiceHealthSnapshot;
+
+type HealthSnapshot = {
+  status: 'UP' | 'DEGRADED' | 'DOWN';
+  module: string;
+  services: {
+    api: ServiceStatus;
+    database: ServiceStatus;
+    redis: ServiceStatus;
+    kafka: ServiceStatus;
+  };
+  timestamp: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 const client = axios.create({
